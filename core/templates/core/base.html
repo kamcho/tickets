@@ -1,0 +1,172 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="Premium Customer Support Ticket Management Portal for Metrolinks Solution Ltd. Support requests, issues tracking, and agent assignments.">
+    <title>{% block title %}Metrolinks Support Center{% endblock %}</title>
+    
+    <!-- Custom Style Sheet -->
+    <link rel="stylesheet" href="{% static 'core/css/style.css' %}">
+    
+    <!-- Feather Icons for modern lightweight iconography -->
+    <script src="https://unpkg.com/feather-icons"></script>
+    
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+
+    <!-- Top Navigation Bar -->
+    <nav class="navbar" id="main-navbar">
+        <div class="nav-container">
+            <!-- Brand Logo -->
+            <a href="/" class="nav-brand" id="brand-link">
+                <div class="nav-brand-logo">M</div>
+                <span>METROLINKS <span class="highlight">SUPPORT</span></span>
+            </a>
+
+            <!-- Menu Navigation Links -->
+            <ul class="nav-menu">
+                {% if user.is_authenticated %}
+                    <li class="nav-item">
+                        <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}" id="nav-home">
+                            <i data-feather="grid" style="width: 16px; height: 16px;"></i> Dashboard
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="/tickets/create/" class="nav-link {% if 'create' in request.path %}active{% endif %}" id="nav-create-ticket">
+                            <i data-feather="plus-circle" style="width: 16px; height: 16px;"></i> Open Ticket
+                        </a>
+                    </li>
+                    {% if user.role == 'Admin' %}
+                        <li class="nav-item">
+                            <a href="/users/" class="nav-link {% if 'users' in request.path %}active{% endif %}" id="nav-user-management">
+                                <i data-feather="users" style="width: 16px; height: 16px;"></i> Users
+                            </a>
+                        </li>
+                    {% endif %}
+                    {% if user.role == 'Admin' or user.is_staff %}
+                        <li class="nav-item">
+                            <a href="/admin/" class="nav-link" id="nav-admin-portal" target="_blank">
+                                <i data-feather="settings" style="width: 16px; height: 16px;"></i> Admin Console
+                            </a>
+                        </li>
+                    {% endif %}
+                {% endif %}
+            </ul>
+
+            <!-- Navigation Actions & Profile -->
+            <div class="nav-actions">
+                {% if user.is_authenticated %}
+                    <!-- User Avatar & Dropdown Menu -->
+                    <div class="user-profile-menu" id="profile-menu-toggle" onclick="toggleProfileDropdown()">
+                        <div class="user-avatar" id="user-avatar-initials">
+                            {{ user.email|slice:":1"|upper }}
+                        </div>
+                        <div class="user-info">
+                            <span class="user-name" id="user-display-name">
+                                {% if user.first_name %}{{ user.first_name }}{% else %}{{ user.email }}{% endif %}
+                            </span>
+                            <span class="user-role" id="user-display-role">{{ user.role|default:"Client" }}</span>
+                        </div>
+                        <i data-feather="chevron-down" style="width: 14px; height: 14px; color: var(--text-muted);"></i>
+                        
+                        <!-- Dropdown Options -->
+                        <div class="dropdown-menu" id="profile-dropdown-list">
+                            <a href="/profile/" class="dropdown-item" id="dropdown-profile">
+                                <i data-feather="user" style="width: 14px; height: 14px;"></i> My Profile
+                            </a>
+                            <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 0.25rem 0;">
+                            <!-- Django 5+ / 6.0 style POST logout is recommended for security, but we provide a logout form -->
+                            <form action="/logout/" method="post" id="logout-form" style="display: none;">
+                                {% csrf_token %}
+                            </form>
+                            <a href="#" onclick="document.getElementById('logout-form').submit(); return false;" class="dropdown-item" id="dropdown-logout" style="color: var(--danger);">
+                                <i data-feather="log-out" style="width: 14px; height: 14px;"></i> Log Out
+                            </a>
+                        </div>
+                    </div>
+                {% else %}
+                    <!-- Anonymous Guest Action -->
+                    {% if not 'login' in request.path %}
+                        <a href="/login/" class="btn btn-primary" id="btn-login-redirect">
+                            <i data-feather="log-in" style="width: 16px; height: 16px;"></i> Agent Login
+                        </a>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+    </nav>
+
+    <!-- Message Alerts Center -->
+    {% if messages %}
+        <div class="messages-container" id="toast-messages-container">
+            {% for message in messages %}
+                <div class="alert-message alert-{{ message.tags|default:'info' }}" role="alert">
+                    {% if message.tags == 'error' %}
+                        <i data-feather="alert-octagon"></i>
+                    {% elif message.tags == 'success' %}
+                        <i data-feather="check-circle"></i>
+                    {% elif message.tags == 'warning' %}
+                        <i data-feather="alert-triangle"></i>
+                    {% else %}
+                        <i data-feather="info"></i>
+                    {% endif %}
+                    <span>{{ message }}</span>
+                </div>
+            {% endfor %}
+        </div>
+    {% endif %}
+
+    <!-- Main Content Layout Section -->
+    <main class="main-wrapper" id="main-content-section">
+        {% block content %}
+        {% endblock %}
+    </main>
+
+    <!-- Global Layout Footer -->
+    <footer id="main-footer">
+        <div class="footer-content">
+            <span class="footer-brand">METROLINKS SOLUTION LTD</span>
+            <span class="footer-text" id="footer-copyright">&copy; {% now "Y" %} Metrolinks Solution Ltd. All rights reserved. Customer Support Portal.</span>
+        </div>
+    </footer>
+
+    <!-- Initialize Icons and Scripting -->
+    <script>
+        // Initialize feather icons
+        feather.replace();
+
+        // Handle profile dropdown interaction
+        function toggleProfileDropdown() {
+            const dropdown = document.getElementById('profile-dropdown-list');
+            if (dropdown) {
+                dropdown.classList.toggle('show');
+            }
+        }
+
+        // Close dropdown when clicking outside
+        window.addEventListener('click', function(e) {
+            const profileMenu = document.getElementById('profile-menu-toggle');
+            const dropdown = document.getElementById('profile-dropdown-list');
+            if (profileMenu && dropdown && !profileMenu.contains(e.target)) {
+                dropdown.classList.remove('show');
+            }
+        });
+
+        // Auto-dismiss alerts after 5 seconds
+        document.addEventListener('DOMContentLoaded', () => {
+            const toasts = document.querySelectorAll('.alert-message');
+            toasts.forEach(toast => {
+                setTimeout(() => {
+                    toast.style.transition = 'opacity 0.5s ease, transform 0.5s ease';
+                    toast.style.opacity = '0';
+                    toast.style.transform = 'translateY(-20px)';
+                    setTimeout(() => toast.remove(), 500);
+                }, 5000);
+            });
+        });
+    </script>
+</body>
+</html>

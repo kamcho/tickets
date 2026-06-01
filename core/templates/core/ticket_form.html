@@ -1,0 +1,76 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Open Ticket - Metrolinks Support{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 2rem;">
+    <a href="/" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.85rem;" id="btn-back-dashboard">
+        <i data-feather="arrow-left" style="width: 14px; height: 14px;"></i> Back to Dashboard
+    </a>
+</div>
+
+<div class="form-container" style="max-width: 800px; margin: 0 auto;">
+    <div class="card" style="padding: 2.5rem;">
+        <div style="margin-bottom: 2rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem;">
+            <h1 style="font-size: 1.75rem; font-weight: 800; letter-spacing: -0.025em; margin-bottom: 0.25rem;">Open Support Ticket</h1>
+            <p style="color: var(--text-secondary); font-size: 0.9rem;">Submit a new support ticket request to METROLINKS SOLUTION LTD. Our agents will assist you shortly.</p>
+        </div>
+
+        <form method="post" enctype="multipart/form-data" id="ticket-create-form">
+            {% csrf_token %}
+
+            <!-- Subject -->
+            <div class="form-group">
+                <label for="{{ form.subject.id_for_label }}" class="form-label">Subject</label>
+                {{ form.subject }}
+                {% if form.subject.errors %}
+                    <span style="color: var(--danger); font-size: 0.8rem; margin-top: 0.25rem;">{{ form.subject.errors.0 }}</span>
+                {% endif %}
+            </div>
+
+            <!-- Row for Category & Priority -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="{{ form.category.id_for_label }}" class="form-label">Category</label>
+                    {{ form.category }}
+                    {% if form.category.errors %}
+                        <span style="color: var(--danger); font-size: 0.8rem; margin-top: 0.25rem;">{{ form.category.errors.0 }}</span>
+                    {% endif %}
+                </div>
+                
+                <div class="form-group" style="margin-bottom: 0;">
+                    <label for="{{ form.priority.id_for_label }}" class="form-label">Priority Level</label>
+                    {{ form.priority }}
+                    {% if form.priority.errors %}
+                        <span style="color: var(--danger); font-size: 0.8rem; margin-top: 0.25rem;">{{ form.priority.errors.0 }}</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Description -->
+            <div class="form-group">
+                <label for="{{ form.description.id_for_label }}" class="form-label">Detailed Description</label>
+                {{ form.description }}
+                {% if form.description.errors %}
+                    <span style="color: var(--danger); font-size: 0.8rem; margin-top: 0.25rem;">{{ form.description.errors.0 }}</span>
+                {% endif %}
+            </div>
+
+            <!-- File Attachment -->
+            <div class="form-group" style="margin-bottom: 2.5rem;">
+                <label for="attachment" class="form-label">Attach File (Optional)</label>
+                <input type="file" name="attachment" id="attachment" class="form-input">
+                <span style="color: var(--text-muted); font-size: 0.8rem; margin-top: 0.25rem;">Upload screenshot, logs, or error documents. Max size 10MB.</span>
+            </div>
+
+            <!-- Actions -->
+            <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+                <a href="/" class="btn btn-secondary" style="padding: 0.75rem 1.5rem;">Cancel</a>
+                <button type="submit" class="btn btn-primary" style="padding: 0.75rem 2rem;" id="btn-submit-ticket">
+                    <i data-feather="send" style="width: 16px; height: 16px;"></i> Submit Ticket
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

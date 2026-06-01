@@ -1,0 +1,203 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Dashboard - Metrolinks Support{% endblock %}
+
+{% block content %}
+<div class="dashboard-header" style="margin-bottom: 2.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+    <div>
+        {% if is_agent %}
+            <h1 style="font-size: 2rem; font-weight: 800; letter-spacing: -0.025em; margin-bottom: 0.25rem;">Agent Workspace</h1>
+            <p style="color: var(--text-secondary); font-size: 0.95rem;">Reviewing your assigned open and active support requests.</p>
+        {% else %}
+            <h1 style="font-size: 2rem; font-weight: 800; letter-spacing: -0.025em; margin-bottom: 0.25rem;">Support Dashboard</h1>
+            <p style="color: var(--text-secondary); font-size: 0.95rem;">Manage, review, and track customer support requests for Metrolinks Solution Ltd.</p>
+        {% endif %}
+    </div>
+    <a href="/tickets/create/" class="btn btn-primary" id="btn-create-ticket-header">
+        <i data-feather="plus" style="width: 16px; height: 16px;"></i> Create New Ticket
+    </a>
+</div>
+
+<!-- Metrics Cards Section -->
+<div class="metrics-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.5rem; margin-bottom: 3rem;">
+    <!-- Card 1: Total -->
+    <a href="?status=" style="text-decoration: none;">
+        <div class="card" style="display: flex; align-items: center; gap: 1.5rem; padding: 1.5rem; height: 100%;">
+            <div style="background: rgba(99, 102, 241, 0.15); border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 12px; width: 54px; height: 54px; display: flex; align-items: center; justify-content: center; color: var(--primary);">
+                <i data-feather="life-buoy" style="width: 24px; height: 24px;"></i>
+            </div>
+            <div>
+                <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">{% if is_agent %}My Assigned Tickets{% else %}Total Tickets{% endif %}</span>
+                <h2 style="font-size: 1.75rem; font-weight: 800; margin-top: 0.15rem; color: var(--text-primary);">{{ metrics.total }}</h2>
+            </div>
+        </div>
+    </a>
+
+    <!-- Card 2: Open -->
+    <a href="?status=Open" style="text-decoration: none;">
+        <div class="card" style="display: flex; align-items: center; gap: 1.5rem; padding: 1.5rem; height: 100%;">
+            <div style="background: rgba(6, 182, 212, 0.15); border: 1px solid rgba(6, 182, 212, 0.3); border-radius: 12px; width: 54px; height: 54px; display: flex; align-items: center; justify-content: center; color: var(--accent);">
+                <i data-feather="clock" style="width: 24px; height: 24px;"></i>
+            </div>
+            <div>
+                <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">{% if is_agent %}My Open Tickets{% else %}Open Tickets{% endif %}</span>
+                <h2 style="font-size: 1.75rem; font-weight: 800; margin-top: 0.15rem; color: var(--accent);">{{ metrics.open }}</h2>
+            </div>
+        </div>
+    </a>
+
+    <!-- Card 3: Pending -->
+    <a href="?status=In Progress" style="text-decoration: none;">
+        <div class="card" style="display: flex; align-items: center; gap: 1.5rem; padding: 1.5rem; height: 100%;">
+            <div style="background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 12px; width: 54px; height: 54px; display: flex; align-items: center; justify-content: center; color: var(--warning);">
+                <i data-feather="alert-circle" style="width: 24px; height: 24px;"></i>
+            </div>
+            <div>
+                <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">{% if is_agent %}My Active Actions{% else %}In Progress / On Hold{% endif %}</span>
+                <h2 style="font-size: 1.75rem; font-weight: 800; margin-top: 0.15rem; color: var(--warning);">{{ metrics.pending }}</h2>
+            </div>
+        </div>
+    </a>
+
+    <!-- Card 4: Resolved -->
+    <a href="?status=Resolved" style="text-decoration: none;">
+        <div class="card" style="display: flex; align-items: center; gap: 1.5rem; padding: 1.5rem; height: 100%;">
+            <div style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); border-radius: 12px; width: 54px; height: 54px; display: flex; align-items: center; justify-content: center; color: var(--success);">
+                <i data-feather="check-square" style="width: 24px; height: 24px;"></i>
+            </div>
+            <div>
+                <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.05em;">{% if is_agent %}My Resolved{% else %}Resolved / Closed{% endif %}</span>
+                <h2 style="font-size: 1.75rem; font-weight: 800; margin-top: 0.15rem; color: var(--success);">{{ metrics.resolved }}</h2>
+            </div>
+        </div>
+    </a>
+</div>
+
+<!-- Filters & Search Section -->
+<div class="card" style="padding: 1.5rem; margin-bottom: 2rem;">
+    <form method="get" style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end;">
+        <div class="form-group" style="flex: 1; min-width: 200px; margin-bottom: 0;">
+            <label for="search" class="form-label">Search Tickets</label>
+            <input type="text" name="search" id="search" class="form-input" placeholder="Search ID, subject or description..." value="{{ filters.search }}">
+        </div>
+        
+        <div class="form-group" style="width: 160px; margin-bottom: 0;">
+            <label for="status" class="form-label">Status</label>
+            <select name="status" id="status" class="form-input">
+                {% if is_agent %}
+                    <option value="active" {% if filters.status == 'active' %}selected{% endif %}>Active (Open & In Progress)</option>
+                    <option value="" {% if filters.status == '' %}selected{% endif %}>All My Statuses</option>
+                {% else %}
+                    <option value="">All Statuses</option>
+                {% endif %}
+                <option value="Open" {% if filters.status == 'Open' %}selected{% endif %}>Open</option>
+                <option value="In Progress" {% if filters.status == 'In Progress' %}selected{% endif %}>In Progress</option>
+                <option value="On Hold" {% if filters.status == 'On Hold' %}selected{% endif %}>On Hold</option>
+                <option value="Resolved" {% if filters.status == 'Resolved' %}selected{% endif %}>Resolved</option>
+                <option value="Closed" {% if filters.status == 'Closed' %}selected{% endif %}>Closed</option>
+            </select>
+        </div>
+
+        <div class="form-group" style="width: 160px; margin-bottom: 0;">
+            <label for="priority" class="form-label">Priority</label>
+            <select name="priority" id="priority" class="form-input">
+                <option value="">All Priorities</option>
+                <option value="High" {% if filters.priority == 'High' %}selected{% endif %}>High</option>
+                <option value="Medium" {% if filters.priority == 'Medium' %}selected{% endif %}>Medium</option>
+                <option value="Low" {% if filters.priority == 'Low' %}selected{% endif %}>Low</option>
+            </select>
+        </div>
+
+        <div class="form-group" style="width: 200px; margin-bottom: 0;">
+            <label for="category" class="form-label">Category</label>
+            <select name="category" id="category" class="form-input">
+                <option value="">All Categories</option>
+                {% for category in categories %}
+                    <option value="{{ category.id }}" {% if filters.category == category.id|stringformat:"i" %}selected{% endif %}>{{ category.name }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div style="display: flex; gap: 0.5rem;">
+            <button type="submit" class="btn btn-primary" style="padding: 0.75rem 1.25rem;">
+                <i data-feather="filter" style="width: 16px; height: 16px;"></i> Apply
+            </button>
+            <a href="/" class="btn btn-secondary" style="padding: 0.75rem 1.25rem;">
+                Clear
+            </a>
+        </div>
+    </form>
+</div>
+
+<!-- Ticket Queue Section -->
+<div class="card" style="padding: 2rem;">
+    <div style="margin-bottom: 1.5rem;">
+        <h3 style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary);">{% if is_agent %}My Ticket Queue{% else %}Ticket Queue{% endif %}</h3>
+        <p style="color: var(--text-secondary); font-size: 0.85rem;">Showing {{ tickets.count }} matching tickets</p>
+    </div>
+
+    <!-- Responsive Table -->
+    <div style="overflow-x: auto; width: 100%;">
+        <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
+            <thead>
+                <tr style="border-bottom: 1px solid var(--border-color); color: var(--text-secondary); font-weight: 600;">
+                    <th style="padding: 1rem 0.75rem;">Ticket ID</th>
+                    <th style="padding: 1rem 0.75rem;">Subject</th>
+                    <th style="padding: 1rem 0.75rem;">Category</th>
+                    <th style="padding: 1rem 0.75rem;">Priority</th>
+                    <th style="padding: 1rem 0.75rem;">Status</th>
+                    <th style="padding: 1rem 0.75rem;">Created</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ticket in tickets %}
+                    <tr style="border-bottom: 1px solid var(--border-color); cursor: pointer; transition: var(--transition-smooth);" class="table-row-hover" onclick="window.location.href='/tickets/{{ ticket.ticket_id }}/'">
+                        <td style="padding: 1rem 0.75rem; font-weight: 700; color: var(--primary);">{{ ticket.ticket_id }}</td>
+                        <td style="padding: 1rem 0.75rem; color: var(--text-primary); font-weight: 500;">
+                            {{ ticket.subject|default:"(No Subject)" }}
+                        </td>
+                        <td style="padding: 1rem 0.75rem; color: var(--text-secondary);">{{ ticket.category.name }}</td>
+                        <td style="padding: 1rem 0.75rem;">
+                            {% if ticket.priority == 'High' %}
+                                <span style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); color: var(--danger); font-size: 0.75rem; padding: 0.25rem 0.5rem; border-radius: 6px; font-weight: 600;">High</span>
+                            {% elif ticket.priority == 'Medium' %}
+                                <span style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.2); color: var(--warning); font-size: 0.75rem; padding: 0.25rem 0.5rem; border-radius: 6px; font-weight: 600;">Medium</span>
+                            {% else %}
+                                <span style="background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-color); color: var(--text-secondary); font-size: 0.75rem; padding: 0.25rem 0.5rem; border-radius: 6px; font-weight: 600;">Low</span>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 1rem 0.75rem;">
+                            {% if ticket.status == 'Open' %}
+                                <span style="background: rgba(6, 182, 212, 0.1); border: 1px solid rgba(6, 182, 212, 0.2); color: var(--accent); font-size: 0.75rem; padding: 0.25rem 0.5rem; border-radius: 6px; font-weight: 600;">Open</span>
+                            {% elif ticket.status == 'In Progress' %}
+                                <span style="background: rgba(99, 102, 241, 0.1); border: 1px solid rgba(99, 102, 241, 0.2); color: var(--primary); font-size: 0.75rem; padding: 0.25rem 0.5rem; border-radius: 6px; font-weight: 600;">In Progress</span>
+                            {% elif ticket.status == 'On Hold' %}
+                                <span style="background: rgba(245, 158, 11, 0.1); border: 1px solid rgba(245, 158, 11, 0.2); color: var(--warning); font-size: 0.75rem; padding: 0.25rem 0.5rem; border-radius: 6px; font-weight: 600;">On Hold</span>
+                            {% elif ticket.status == 'Resolved' %}
+                                <span style="background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.2); color: var(--success); font-size: 0.75rem; padding: 0.25rem 0.5rem; border-radius: 6px; font-weight: 600;">Resolved</span>
+                            {% else %}
+                                <span style="background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-color); color: var(--text-muted); font-size: 0.75rem; padding: 0.25rem 0.5rem; border-radius: 6px; font-weight: 600;">Closed</span>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 1rem 0.75rem; color: var(--text-muted);">{{ ticket.created_at|date:"d M Y H:i" }}</td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="6" style="padding: 3rem 0.75rem; text-align: center; color: var(--text-secondary);">
+                            <div style="font-size: 2rem; margin-bottom: 0.5rem;">📁</div>
+                            <span style="font-weight: 600;">No tickets found.</span>
+                            <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">Try adjusting your filters or create a new ticket.</p>
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<style>
+    .table-row-hover:hover {
+        background: rgba(255, 255, 255, 0.02);
+    }
+</style>
+{% endblock %}

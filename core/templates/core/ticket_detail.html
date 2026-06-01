@@ -1,0 +1,242 @@
+{% extends 'core/base.html' %}
+
+{% block title %}{{ ticket.ticket_id }} - Metrolinks Support{% endblock %}
+
+{% block content %}
+<!-- Back Navigation -->
+<div style="margin-bottom: 2rem; display: flex; justify-content: space-between; align-items: center;">
+    <a href="/" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.85rem;" id="btn-back-dashboard">
+        <i data-feather="arrow-left" style="width: 14px; height: 14px;"></i> Back to Dashboard
+    </a>
+</div>
+
+<!-- Ticket Headline -->
+<div style="margin-bottom: 2.5rem; display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 1.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1.5rem;">
+    <div>
+        <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 0.5rem;">
+            <span style="font-size: 1.1rem; font-weight: 800; color: var(--primary);">{{ ticket.ticket_id }}</span>
+            
+            <!-- Status Badge -->
+            {% if ticket.status == 'Open' %}
+                <span style="background: rgba(6, 182, 212, 0.15); border: 1px solid rgba(6, 182, 212, 0.3); color: var(--accent); font-size: 0.8rem; padding: 0.3rem 0.6rem; border-radius: 20px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Open</span>
+            {% elif ticket.status == 'In Progress' %}
+                <span style="background: rgba(99, 102, 241, 0.15); border: 1px solid rgba(99, 102, 241, 0.3); color: var(--primary); font-size: 0.8rem; padding: 0.3rem 0.6rem; border-radius: 20px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">In Progress</span>
+            {% elif ticket.status == 'On Hold' %}
+                <span style="background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3); color: var(--warning); font-size: 0.8rem; padding: 0.3rem 0.6rem; border-radius: 20px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">On Hold</span>
+            {% elif ticket.status == 'Resolved' %}
+                <span style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); color: var(--success); font-size: 0.8rem; padding: 0.3rem 0.6rem; border-radius: 20px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Resolved</span>
+            {% else %}
+                <span style="background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-color); color: var(--text-muted); font-size: 0.8rem; padding: 0.3rem 0.6rem; border-radius: 20px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Closed</span>
+            {% endif %}
+
+            <!-- Priority Badge -->
+            {% if ticket.priority == 'High' %}
+                <span style="background: rgba(239, 68, 68, 0.15); border: 1px solid rgba(239, 68, 68, 0.3); color: var(--danger); font-size: 0.8rem; padding: 0.3rem 0.6rem; border-radius: 20px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">High Priority</span>
+            {% elif ticket.priority == 'Medium' %}
+                <span style="background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3); color: var(--warning); font-size: 0.8rem; padding: 0.3rem 0.6rem; border-radius: 20px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Medium Priority</span>
+            {% else %}
+                <span style="background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-color); color: var(--text-secondary); font-size: 0.8rem; padding: 0.3rem 0.6rem; border-radius: 20px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Low Priority</span>
+            {% endif %}
+        </div>
+        <h1 style="font-size: 2.25rem; font-weight: 800; letter-spacing: -0.025em; margin-bottom: 0.5rem; color: var(--text-primary);">
+            {{ ticket.subject|default:"(No Subject)" }}
+        </h1>
+        <div style="display: flex; gap: 1.5rem; flex-wrap: wrap; color: var(--text-secondary); font-size: 0.875rem;">
+            <span><strong style="color: var(--text-primary);">Category:</strong> {{ ticket.category.name }}</span>
+            <span><strong style="color: var(--text-primary);">Opened:</strong> {{ ticket.created_at|date:"d M Y H:i" }}</span>
+            <span><strong style="color: var(--text-primary);">Updated:</strong> {{ ticket.updated_at|date:"d M Y H:i" }}</span>
+        </div>
+    </div>
+</div>
+
+<!-- Main Grid Layout -->
+<div style="display: grid; grid-template-columns: 2fr 1fr; gap: 2rem; align-items: start;">
+    
+    <!-- Left Column: Details, Comments, Attachments -->
+    <div style="display: flex; flex-direction: column; gap: 2rem;">
+        
+        <!-- Ticket Description -->
+        <div class="card" style="padding: 2rem;">
+            <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 1rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; color: var(--text-primary);">
+                Ticket Description
+            </h3>
+            <div style="white-space: pre-wrap; font-size: 0.95rem; color: var(--text-primary); line-height: 1.6;">
+                {{ ticket.description }}
+            </div>
+        </div>
+
+        <!-- Ticket Comments section -->
+        <div class="card" style="padding: 2rem;">
+            <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 1.5rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; color: var(--text-primary);">
+                Activity & Discussion ({{ comments.count }})
+            </h3>
+            
+            <!-- Comment list -->
+            <div style="display: flex; flex-direction: column; gap: 1.25rem; margin-bottom: 2rem;">
+                {% for comment in comments %}
+                    <div style="background: rgba(255, 255, 255, 0.02); border: 1px solid var(--border-color); border-radius: var(--border-radius); padding: 1.25rem; position: relative;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; flex-wrap: wrap; gap: 0.5rem;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <div style="width: 26px; height: 26px; border-radius: 50%; background: linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%); display: flex; align-items: center; justify-content: center; font-size: 0.7rem; color: white; font-weight: bold;">
+                                    {{ comment.commented_by.email|slice:":1"|upper }}
+                                </div>
+                                <span style="font-weight: 700; font-size: 0.85rem; color: var(--text-primary);">{{ comment.commented_by.email }}</span>
+                                <span style="font-size: 0.7rem; color: var(--accent); font-weight: 600; text-transform: uppercase; background: rgba(6, 182, 212, 0.1); padding: 0.1rem 0.4rem; border-radius: 4px;">{{ comment.commented_by.role|default:"Agent" }}</span>
+                            </div>
+                            <span style="font-size: 0.8rem; color: var(--text-muted);">{{ comment.commented_at|date:"d M Y H:i" }}</span>
+                        </div>
+                        <div style="white-space: pre-wrap; font-size: 0.9rem; color: var(--text-primary); line-height: 1.5;">
+                            {{ comment.comment }}
+                        </div>
+                    </div>
+                {% empty %}
+                    <div style="text-align: center; padding: 2rem; color: var(--text-muted); font-size: 0.9rem;">
+                        No discussion yet. Type below to add an update.
+                    </div>
+                {% endfor %}
+            </div>
+
+            <!-- Post comment form -->
+            <form method="post" id="comment-post-form" style="border-top: 1px solid var(--border-color); padding-top: 1.5rem;">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="add_comment">
+                <div class="form-group">
+                    <label for="comment-textarea" class="form-label">Add Update</label>
+                    <textarea name="comment" id="comment-textarea" class="form-input" rows="3" placeholder="Write a response or note..." required></textarea>
+                </div>
+                <div style="text-align: right;">
+                    <button type="submit" class="btn btn-primary" id="btn-post-comment" style="padding: 0.6rem 1.5rem;">
+                        <i data-feather="message-square" style="width: 14px; height: 14px;"></i> Post Comment
+                    </button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Ticket Attachments Section -->
+        <div class="card" style="padding: 2rem;">
+            <h3 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 1.25rem; border-bottom: 1px solid var(--border-color); padding-bottom: 0.5rem; color: var(--text-primary);">
+                Attachments ({{ attachments.count }})
+            </h3>
+
+            <!-- List attachments -->
+            <div style="display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1.5rem;">
+                {% for att in attachments %}
+                    <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.75rem 1rem; background: rgba(9, 13, 22, 0.4); border: 1px solid var(--border-color); border-radius: 8px;">
+                        <div style="display: flex; align-items: center; gap: 0.75rem;">
+                            <i data-feather="file" style="color: var(--text-secondary); width: 18px; height: 18px;"></i>
+                            <span style="font-size: 0.85rem; color: var(--text-primary); font-weight: 500;">
+                                {{ att.attachment.name|cut:"attachments/" }}
+                            </span>
+                        </div>
+                        <a href="{{ att.attachment.url }}" download class="btn btn-secondary" style="padding: 0.4rem 0.75rem; font-size: 0.75rem; border-radius: 6px;">
+                            <i data-feather="download" style="width: 12px; height: 12px;"></i> Download
+                        </a>
+                    </div>
+                {% empty %}
+                    <div style="text-align: center; padding: 1.5rem; color: var(--text-muted); font-size: 0.9rem;">
+                        No files attached.
+                    </div>
+                {% endfor %}
+            </div>
+
+            <!-- Upload new attachment form -->
+            <form method="post" enctype="multipart/form-data" id="attachment-upload-form" style="border-top: 1px solid var(--border-color); padding-top: 1.25rem; display: flex; align-items: flex-end; gap: 1rem; flex-wrap: wrap;">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="add_attachment">
+                <div class="form-group" style="flex: 1; min-width: 200px; margin-bottom: 0;">
+                    <label for="attachment-input" class="form-label">Attach File</label>
+                    <input type="file" name="attachment" id="attachment-input" class="form-input" required>
+                </div>
+                <button type="submit" class="btn btn-secondary" id="btn-upload-attachment" style="padding: 0.75rem 1.25rem;">
+                    <i data-feather="upload" style="width: 14px; height: 14px;"></i> Upload
+                </button>
+            </form>
+        </div>
+
+    </div>
+
+    <!-- Right Column: Status & Assignment Panel -->
+    <div style="display: flex; flex-direction: column; gap: 2rem;">
+        
+        <!-- Status Management Card -->
+        <div class="card" style="padding: 1.75rem;">
+            <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 1rem; color: var(--text-primary);">
+                Update Status
+            </h3>
+            <form method="post" id="status-update-form">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="update_status">
+                <div class="form-group" style="margin-bottom: 1.25rem;">
+                    <select name="status" class="form-input">
+                        {% for code, label in statuses %}
+                            <option value="{{ code }}" {% if ticket.status == code %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                </div>
+                <button type="submit" class="btn btn-primary" id="btn-update-status" style="width: 100%;">
+                    Update Ticket Status
+                </button>
+            </form>
+        </div>
+
+        <!-- Assignment Control Card -->
+        <div class="card" style="padding: 1.75rem;">
+            <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 1rem; color: var(--text-primary);">
+                Assignee Control
+            </h3>
+            
+            <!-- Current Assignee Display -->
+            <div style="margin-bottom: 1.5rem; display: flex; align-items: center; gap: 0.75rem;">
+                <div style="width: 38px; height: 38px; border-radius: 50%; background: {% if assignment %}linear-gradient(135deg, var(--primary) 0%, var(--accent) 100%){% else %}rgba(255, 255, 255, 0.05){% endif %}; display: flex; align-items: center; justify-content: center; color: white;">
+                    {% if assignment %}
+                        <i data-feather="user" style="width: 18px; height: 18px;"></i>
+                    {% else %}
+                        <i data-feather="user-x" style="width: 18px; height: 18px; color: var(--text-muted);"></i>
+                    {% endif %}
+                </div>
+                <div>
+                    <span style="font-size: 0.8rem; color: var(--text-secondary); display: block;">Assigned Agent</span>
+                    <span style="font-size: 0.95rem; font-weight: 700; color: var(--text-primary);">
+                        {% if assignment %}
+                            {{ assignment.assigned_to.email }}
+                        {% else %}
+                            Unassigned
+                        {% endif %}
+                    </span>
+                </div>
+            </div>
+
+            <!-- Assignment Change Form (Accessible to Admins/Receptionists) -->
+            {% if user.role in 'Admin,Receptionist' or user.is_staff %}
+                <form method="post" id="assignment-update-form" style="border-top: 1px solid var(--border-color); padding-top: 1.25rem;">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="update_assignment">
+                    <div class="form-group" style="margin-bottom: 1.25rem;">
+                        <label for="assignee-select" class="form-label" style="font-size: 0.8rem;">Change Assignment</label>
+                        <select name="assigned_to" id="assignee-select" class="form-input">
+                            <option value="">-- Unassigned --</option>
+                            {% for agent in agents %}
+                                <option value="{{ agent.id }}" {% if assignment and assignment.assigned_to.id == agent.id %}selected{% endif %}>{{ agent.email }} ({{ agent.role|default:"Agent" }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <button type="submit" class="btn btn-secondary" id="btn-update-assignment" style="width: 100%;">
+                        Assign Ticket
+                    </button>
+                </form>
+            {% endif %}
+        </div>
+
+        <!-- Metadata Info Card -->
+        <div class="card" style="padding: 1.5rem; background: rgba(9, 13, 22, 0.3);">
+            <h4 style="font-size: 0.85rem; font-weight: 700; color: var(--text-secondary); text-transform: uppercase; margin-bottom: 0.75rem; letter-spacing: 0.05em;">Ticket Audit Information</h4>
+            <div style="display: flex; flex-direction: column; gap: 0.5rem; font-size: 0.8rem; color: var(--text-secondary);">
+                <div>Created: <span style="color: var(--text-primary); float: right;">{{ ticket.created_at|date:"d M Y H:i" }}</span></div>
+                <div>Last Modification: <span style="color: var(--text-primary); float: right;">{{ ticket.updated_at|date:"d M Y H:i" }}</span></div>
+            </div>
+        </div>
+
+    </div>
+
+</div>
+{% endblock %}

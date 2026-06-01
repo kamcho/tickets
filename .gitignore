@@ -1,0 +1,49 @@
+# ==============================================================================
+# Git Ignore Configuration (.gitignore)
+# ==============================================================================
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# Django Local Configurations & Databases
+db.sqlite3
+db.sqlite3-journal
+*.log
+local_settings.py
+
+# Static & Media files
+media/
+staticfiles/
+
+# Environment configurations containing secrets (CRITICAL)
+.env
+.env.local
+.env.*.local
+.env.backup
+.env.production
+
+# Dependency virtual environments
+.venv/
+venv/
+ENV/
+env/
+python-venv/
+
+# OS/System files
+.DS_Store
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+# IDEs and Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+migrations/
