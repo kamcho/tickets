@@ -92,6 +92,11 @@
                             </a>
                         </div>
                     </div>
+                    
+                    <!-- Hamburger Toggle Button -->
+                    <button class="nav-toggle" id="nav-toggle-btn" aria-label="Toggle Navigation">
+                        <i data-feather="menu"></i>
+                    </button>
                 {% else %}
                     <!-- Anonymous Guest Action -->
                     {% if not 'login' in request.path %}
@@ -160,8 +165,34 @@
             }
         });
 
-        // Auto-dismiss alerts after 5 seconds
+        // Hamburger Menu Toggle Handler
         document.addEventListener('DOMContentLoaded', () => {
+            const toggleBtn = document.getElementById('nav-toggle-btn');
+            const navMenu = document.querySelector('.nav-menu');
+            
+            if (toggleBtn && navMenu) {
+                toggleBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    navMenu.classList.toggle('show');
+                    if (navMenu.classList.contains('show')) {
+                        toggleBtn.innerHTML = '<i data-feather="x"></i>';
+                    } else {
+                        toggleBtn.innerHTML = '<i data-feather="menu"></i>';
+                    }
+                    feather.replace();
+                });
+                
+                // Close navMenu when clicking outside
+                window.addEventListener('click', function(e) {
+                    if (!navMenu.contains(e.target) && !toggleBtn.contains(e.target)) {
+                        navMenu.classList.remove('show');
+                        toggleBtn.innerHTML = '<i data-feather="menu"></i>';
+                        feather.replace();
+                    }
+                });
+            }
+
+            // Auto-dismiss alerts after 5 seconds
             const toasts = document.querySelectorAll('.alert-message');
             toasts.forEach(toast => {
                 setTimeout(() => {

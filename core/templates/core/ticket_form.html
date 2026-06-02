@@ -41,7 +41,7 @@
             </div>
 
             <!-- Row for Category & Priority -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1.5rem; margin-bottom: 1.5rem;">
+            <div class="form-row">
                 <div class="form-group" style="margin-bottom: 0;">
                     <label for="{{ form.category.id_for_label }}" class="form-label">Category</label>
                     {{ form.category }}
@@ -85,4 +85,175 @@
         </form>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const selectEl = document.getElementById('id_customer');
+    if (!selectEl) return;
+
+    // Create wrapper container
+    const container = document.createElement('div');
+    container.className = 'search-select-container';
+
+    // Create wrapper for the input (including the icon)
+    const wrapper = document.createElement('div');
+    wrapper.className = 'search-select-input-wrapper';
+
+    // Create search input
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.className = 'form-input search-select-input';
+    input.placeholder = 'Search customer by name or phone number...';
+    input.autocomplete = 'off';
+
+    // Create feather icon (chevron down)
+    const icon = document.createElement('i');
+    icon.setAttribute('data-feather', 'chevron-down');
+    icon.style.width = '16px';
+    icon.style.height = '16px';
+
+    wrapper.appendChild(input);
+    wrapper.appendChild(icon);
+    container.appendChild(wrapper);
+
+    // Create dropdown menu list
+    const dropdown = document.createElement('div');
+    dropdown.className = 'search-select-dropdown';
+    container.appendChild(dropdown);
+
+    // Insert container before the original select, and hide the original select
+    selectEl.parentNode.insertBefore(container, selectEl);
+    selectEl.style.display = 'none';
+
+    // Parse options from selectEl
+    const options = Array.from(selectEl.options).map(opt => {
+        const text = opt.text;
+        // Text is formatted as: "Contact Name - Phone" or is "Select a Customer..." / empty
+        const isPlaceholder = opt.value === "" || opt.text.startsWith('Select');
+        let name = text;
+        let phone = "";
+        
+        if (!isPlaceholder && text.includes(' - ')) {
+            const parts = text.split(' - ');
+            name = parts[0];
+            phone = parts[1];
+        }
+
+        return {
+            value: opt.value,
+            text: text,
+            name: name,
+            phone: phone,
+            isPlaceholder: isPlaceholder
+        };
+    });
+
+    // Function to filter and render dropdown options
+    function renderDropdown(searchTerm = '') {
+        dropdown.innerHTML = '';
+        const term = searchTerm.toLowerCase().trim();
+        
+        const filtered = options.filter(opt => {
+            if (opt.isPlaceholder) return false;
+            return opt.name.toLowerCase().includes(term) || opt.phone.toLowerCase().includes(term);
+        });
+
+        if (filtered.length === 0) {
+            const noResults = document.createElement('div');
+            noResults.className = 'search-select-no-results';
+            noResults.textContent = 'No customer matches search';
+            dropdown.appendChild(noResults);
+            return;
+        }
+
+        filtered.forEach((opt, idx) => {
+            const optionBtn = document.createElement('div');
+            optionBtn.className = 'search-select-option';
+            optionBtn.setAttribute('data-value', opt.value);
+            
+            const nameSpan = document.createElement('span');
+            nameSpan.className = 'search-select-option-name';
+            nameSpan.textContent = opt.name;
+            optionBtn.appendChild(nameSpan);
+
+            if (opt.phone) {
+                const phoneSpan = document.createElement('span');
+                phoneSpan.className = 'search-select-option-phone';
+                phoneSpan.textContent = opt.phone;
+                optionBtn.appendChild(phoneSpan);
+            }
+
+            optionBtn.addEventListener('click', function() {
+                selectOption(opt);
+            });
+
+            dropdown.appendChild(optionBtn);
+        });
+    }
+
+    function selectOption(opt) {
+        if (opt.isPlaceholder) {
+            input.value = '';
+            selectEl.value = '';
+        } else {
+            input.value = opt.name;
+            selectEl.value = opt.value;
+        }
+        // Trigger change event on select
+        selectEl.dispatchEvent(new Event('change'));
+        closeDropdown();
+    }
+
+    function openDropdown() {
+        container.classList.add('open');
+        renderDropdown(input.value);
+    }
+
+    function closeDropdown() {
+        container.classList.remove('open');
+    }
+
+    // Toggle dropdown on input focus/click
+    input.addEventListener('focus', function() {
+        openDropdown();
+    });
+
+    input.addEventListener('input', function() {
+        openDropdown();
+    });
+
+    // Close when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!container.contains(e.target)) {
+            closeDropdown();
+            // If input is empty, clear value
+            if (input.value.trim() === '') {
+                selectEl.value = '';
+                selectEl.dispatchEvent(new Event('change'));
+            } else {
+                // If typed value is not matching the selected option, reset input to selected option
+                const selectedOpt = options.find(o => o.value === selectEl.value);
+                if (selectedOpt && !selectedOpt.isPlaceholder) {
+                    input.value = selectedOpt.name;
+                } else {
+                    input.value = '';
+                    selectEl.value = '';
+                    selectEl.dispatchEvent(new Event('change'));
+                }
+            }
+        }
+    });
+
+    // Prepopulate if select already has a value
+    if (selectEl.value) {
+        const initialOpt = options.find(o => o.value === selectEl.value);
+        if (initialOpt && !initialOpt.isPlaceholder) {
+            input.value = initialOpt.name;
+        }
+    }
+
+    // Initial replace for chevron icon
+    feather.replace();
+});
+</script>
 {% endblock %}

@@ -46,14 +46,24 @@ class UserCreateForm(forms.ModelForm):
             self.add_error('confirm_password', 'Passwords do not match.')
         return cleaned_data
 
+class CustomerChoiceField(forms.ModelChoiceField):
+    def label_from_instance(self, obj):
+        return f"{obj.contact_name} - {obj.phone}"
+
 class TicketForm(forms.ModelForm):
+    customer = CustomerChoiceField(
+        queryset=Customer.objects.all(),
+        widget=forms.Select(attrs={
+            'class': 'form-input'
+        }),
+        empty_label="Select a Customer...",
+        required=False
+    )
+
     class Meta:
         model = Ticket
         fields = ['customer', 'subject', 'description', 'category', 'priority']
         widgets = {
-            'customer': forms.Select(attrs={
-                'class': 'form-input'
-            }),
             'subject': forms.TextInput(attrs={
                 'class': 'form-input',
                 'placeholder': 'Summarize the issue briefly...'
