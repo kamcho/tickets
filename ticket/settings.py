@@ -175,3 +175,5 @@ if not DEBUG:
     CSRF_COOKIE_SECURE = os.getenv('CSRF_COOKIE_SECURE', 'False').lower() in ('true', '1', 't', 'y', 'yes')
     SECURE_BROWSER_XSS_FILTER = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
+
+DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
