@@ -1,7 +1,8 @@
-from django.test import TestCase
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from .models import MyUser
 
+@override_settings(ALLOWED_HOSTS=['tickets.testserver', 'testserver', 'localhost', '127.0.0.1'])
 class UserManagementTests(TestCase):
     def setUp(self):
         # Create different role users
@@ -24,6 +25,9 @@ class UserManagementTests(TestCase):
         )
         self.agent.set_password("agentpassword123")
         self.agent.save()
+
+        # Set default host for test client to route through django-hosts
+        self.client.defaults['HTTP_HOST'] = 'tickets.testserver'
 
     def test_anonymous_user_redirected(self):
         """Verify anonymous user is redirected to login page."""
