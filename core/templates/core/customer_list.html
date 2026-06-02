@@ -17,7 +17,7 @@
 </div>
 
 <!-- Quick Stats -->
-<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem; margin-bottom: 2rem;">
+<div class="stats-grid">
     <div class="card" style="padding: 1.5rem; text-align: center;">
         <div style="font-size: 2.25rem; font-weight: 800; color: var(--primary); letter-spacing: -0.025em;">{{ metrics.total_customers }}</div>
         <div style="color: var(--text-secondary); font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Total Customers</div>
@@ -30,8 +30,8 @@
 
 <!-- Search Bar -->
 <div class="card" style="padding: 1.25rem; margin-bottom: 2rem;">
-    <form method="get" id="customer-search-form" style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
-        <div class="form-group" style="flex: 1; min-width: 250px; margin-bottom: 0;">
+    <form method="get" id="customer-search-form" class="filter-row" style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
+        <div class="form-group" style="flex: 1; min-width: 0; margin-bottom: 0;">
             <label for="search-input" class="form-label" style="font-size: 0.8rem;">Search Customers</label>
             <input type="text" name="search" id="search-input" class="form-input" placeholder="Search by name, email, phone..." value="{{ search }}">
         </div>
@@ -45,9 +45,18 @@
 </div>
 
 <!-- Customer Table -->
-<div class="card" style="padding: 0; overflow: hidden;">
-    <div style="overflow-x: auto;">
-        <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+<div class="card card--flush">
+    {% if page_obj.paginator.count %}
+        <div style="padding: 1rem 1.25rem; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 0.5rem;">
+            <span style="font-size: 0.85rem; color: var(--text-secondary);">
+                Showing {{ page_obj.start_index }}–{{ page_obj.end_index }} of {{ page_obj.paginator.count }} customer{{ page_obj.paginator.count|pluralize }}
+                {% if search %} (filtered){% endif %}
+            </span>
+            <span style="font-size: 0.8rem; color: var(--text-muted);">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        </div>
+    {% endif %}
+    <div class="table-scroll">
+        <table style="width: 100%; min-width: 720px; border-collapse: collapse; font-size: 0.9rem;">
             <thead>
                 <tr style="background: rgba(99, 102, 241, 0.08); border-bottom: 1px solid var(--border-color);">
                     <th style="padding: 1rem 1.25rem; text-align: left; font-weight: 700; color: var(--text-primary); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;">Contact</th>
@@ -107,5 +116,23 @@
             </tbody>
         </table>
     </div>
+
+    {% if page_obj.paginator.num_pages > 1 %}
+        <nav style="padding: 1.25rem; border-top: 1px solid var(--border-color); display: flex; justify-content: center; align-items: center; gap: 0.5rem; flex-wrap: wrap;" aria-label="Customer list pagination">
+            {% if page_obj.has_previous %}
+                <a href="?page=1{% if search %}&amp;search={{ search|urlencode }}{% endif %}" class="btn btn-secondary" style="padding: 0.5rem 0.85rem; font-size: 0.8rem;">First</a>
+                <a href="?page={{ page_obj.previous_page_number }}{% if search %}&amp;search={{ search|urlencode }}{% endif %}" class="btn btn-secondary" style="padding: 0.5rem 0.85rem; font-size: 0.8rem;">Previous</a>
+            {% endif %}
+
+            <span style="padding: 0 0.75rem; font-size: 0.85rem; color: var(--text-secondary); font-weight: 600;">
+                Page {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}
+            </span>
+
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}{% if search %}&amp;search={{ search|urlencode }}{% endif %}" class="btn btn-secondary" style="padding: 0.5rem 0.85rem; font-size: 0.8rem;">Next</a>
+                <a href="?page={{ page_obj.paginator.num_pages }}{% if search %}&amp;search={{ search|urlencode }}{% endif %}" class="btn btn-secondary" style="padding: 0.5rem 0.85rem; font-size: 0.8rem;">Last</a>
+            {% endif %}
+        </nav>
+    {% endif %}
 </div>
 {% endblock %}

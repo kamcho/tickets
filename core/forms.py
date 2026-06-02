@@ -50,24 +50,31 @@ class CustomerChoiceField(forms.ModelChoiceField):
     def label_from_instance(self, obj):
         return f"{obj.contact_name} - {obj.phone}"
 
+class AgentChoiceField(forms.ModelChoiceField):
+    def label_from_instance(self, obj):
+        name = f"{obj.first_name} {obj.last_name}".strip()
+        if name:
+            return f"{name} ({obj.email})"
+        return obj.email
+
+
 class TicketForm(forms.ModelForm):
     customer = CustomerChoiceField(
-        queryset=Customer.objects.all(),
-        widget=forms.Select(attrs={
-            'class': 'form-input'
-        }),
-        empty_label="Select a Customer...",
-        required=False
+        queryset=Customer.objects.none(),
+        widget=forms.HiddenInput(),
+        required=False,
+    )
+    assigned_to = AgentChoiceField(
+        queryset=MyUser.objects.none(),
+        widget=forms.HiddenInput(),
+        required=False,
+        label="Assign to agent",
     )
 
     class Meta:
         model = Ticket
-        fields = ['customer', 'subject', 'description', 'category', 'priority']
+        fields = ['customer', 'description', 'category', 'priority']
         widgets = {
-            'subject': forms.TextInput(attrs={
-                'class': 'form-input',
-                'placeholder': 'Summarize the issue briefly...'
-            }),
             'description': forms.Textarea(attrs={
                 'class': 'form-input',
                 'rows': 5,
@@ -80,6 +87,21 @@ class TicketForm(forms.ModelForm):
                 'class': 'form-input'
             }),
         }
+
+    def __init__(self, *args, can_assign=False, **kwargs):
+        super().__init__(*args, **kwargs)
+        customer_id = self.data.get('customer') if self.data else self.initial.get('customer')
+        if customer_id:
+            self.fields['customer'].queryset = Customer.objects.filter(pk=customer_id)
+
+        if not can_assign:
+            del self.fields['assigned_to']
+        else:
+            agent_id = self.data.get('assigned_to') if self.data else self.initial.get('assigned_to')
+            if agent_id:
+                self.fields['assigned_to'].queryset = MyUser.objects.filter(
+                    pk=agent_id, role='Field Agent'
+                )
 
 class CustomerForm(forms.ModelForm):
     class Meta:

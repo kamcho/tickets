@@ -78,7 +78,6 @@ class Ticket(models.Model):
     ]
     ticket_id = models.CharField(max_length=20)
     customer = models.ForeignKey(Customer, on_delete=models.SET_NULL, null=True, blank=True, related_name='tickets')
-    subject = models.CharField(max_length=200, null=True, blank=True)
     description = models.TextField()
     category = models.ForeignKey(TicketCategory, on_delete=models.CASCADE)
     priority = models.CharField(max_length=20,choices=PRIORITY)

@@ -1,18 +1,35 @@
+from collections import defaultdict
+
+from django.conf import settings
+from django.core.paginator import Paginator
+from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.db.models import Q, Count
+from django.db.models import Q, Count, Prefetch
+from django_hosts.resolvers import reverse as host_reverse
 from .models import MyUser, Ticket, TicketCategory, TicketAssignment, TicketComments, TicketAttachments, Customer
 from .forms import TicketForm, CommentForm, AttachmentForm, UserCreateForm, CustomerForm
 
+
+def redirect_to_portal_home():
+    """Send authenticated users to the ticket dashboard (not the marketing landing page)."""
+    if settings.DEBUG:
+        return redirect('home')
+    return redirect(host_reverse('home', host='tickets'))
+
+
 def landing_page(request):
+    if request.user.is_authenticated and settings.DEBUG:
+        return redirect_to_portal_home()
     return render(request, "core/landing.html")
+
 
 def login_view(request):
     if request.user.is_authenticated:
-        return redirect("/")
-        
+        return redirect_to_portal_home()
+
     if request.method == "POST":
         email = request.POST.get("username")  # email is passed as username field
         password = request.POST.get("password")
@@ -26,7 +43,7 @@ def login_view(request):
         if user is not None:
             login(request, user)
             messages.success(request, f"Welcome back, {user.email}!")
-            return redirect("/")
+            return redirect_to_portal_home()
         else:
             messages.error(request, "Invalid email or password")
 
@@ -49,7 +66,12 @@ def home_view(request):
     category_filter = request.GET.get('category', '')
     search_query = request.GET.get('search', '')
 
-    tickets = Ticket.objects.all().order_by('-created_at')
+    tickets = Ticket.objects.prefetch_related(
+        Prefetch(
+            'ticketassignment_set',
+            queryset=TicketAssignment.objects.select_related('assigned_to').order_by('-assigned_at'),
+        ),
+    ).order_by('-created_at')
 
     # If user is a Field Agent, filter for their assignments by default
     if is_agent:
@@ -69,7 +91,6 @@ def home_view(request):
     if search_query:
         tickets = tickets.filter(
             Q(ticket_id__icontains=search_query) |
-            Q(subject__icontains=search_query) |
             Q(description__icontains=search_query)
         )
 
@@ -107,30 +128,180 @@ def home_view(request):
     }
     return render(request, "core/home.html", context)
 
+def _save_ticket_with_attachment(request, ticket):
+    ticket.save()
+    attachment_file = request.FILES.get('attachment')
+    if attachment_file:
+        TicketAttachments.objects.create(
+            ticket=ticket,
+            attachment=attachment_file
+        )
+    return ticket
+
+
+def _user_can_assign_tickets(user):
+    return user.role in ['Admin', 'Receptionist'] or user.is_staff
+
+
+def _apply_ticket_assignment(ticket, form, user):
+    if not _user_can_assign_tickets(user):
+        return None
+    assigned_to = form.cleaned_data.get('assigned_to')
+    if not assigned_to:
+        return None
+    TicketAssignment.objects.create(ticket=ticket, assigned_to=assigned_to)
+    return assigned_to
+
+
+def _hybrid_search_slice(queryset, limit=None):
+    """Return up to `limit` rows and whether more exist."""
+    limit = limit or settings.HYBRID_SEARCH_RESULT_LIMIT
+    rows = list(queryset[: limit + 1])
+    has_more = len(rows) > limit
+    return rows[:limit], has_more
+
+
+def _agent_display_name(user):
+    name = f"{user.first_name} {user.last_name}".strip()
+    return name or user.email
+
+
+@login_required(login_url='/login/')
+def customer_search_api(request):
+    q = request.GET.get('q', '').strip()
+    qs = Customer.objects.all().order_by('contact_name')
+    if q:
+        qs = qs.filter(
+            Q(contact_name__icontains=q)
+            | Q(phone__icontains=q)
+            | Q(email__icontains=q)
+        )
+    customers, has_more = _hybrid_search_slice(qs)
+    return JsonResponse({
+        'results': [
+            {
+                'id': c.id,
+                'name': c.contact_name,
+                'sublabel': c.phone,
+                'email': c.email,
+            }
+            for c in customers
+        ],
+        'has_more': has_more,
+    })
+
+
+@login_required(login_url='/login/')
+def agent_search_api(request):
+    if not _user_can_assign_tickets(request.user):
+        return JsonResponse({'results': [], 'has_more': False})
+
+    q = request.GET.get('q', '').strip()
+    qs = MyUser.objects.filter(role='Field Agent').order_by('first_name', 'last_name', 'email')
+    if q:
+        qs = qs.filter(
+            Q(first_name__icontains=q)
+            | Q(last_name__icontains=q)
+            | Q(email__icontains=q)
+            | Q(phone__icontains=q)
+        )
+    agents, has_more = _hybrid_search_slice(qs)
+    return JsonResponse({
+        'results': [
+            {
+                'id': a.id,
+                'name': _agent_display_name(a),
+                'sublabel': a.email,
+            }
+            for a in agents
+        ],
+        'has_more': has_more,
+    })
+
+
+def _hybrid_initial_customer(customer_id):
+    if not customer_id:
+        return None
+    customer = Customer.objects.filter(pk=customer_id).first()
+    if not customer:
+        return None
+    return {
+        'value': customer.id,
+        'name': customer.contact_name,
+        'sublabel': customer.phone,
+    }
+
+
+def _hybrid_initial_agent(agent_id):
+    if not agent_id:
+        return None
+    agent = MyUser.objects.filter(pk=agent_id, role='Field Agent').first()
+    if not agent:
+        return None
+    return {
+        'value': agent.id,
+        'name': _agent_display_name(agent),
+        'sublabel': agent.email,
+    }
+
+
+def _ticket_created_message(ticket, assigned_to=None, customer_name=None):
+    if customer_name:
+        msg = f"Customer '{customer_name}' registered and ticket {ticket.ticket_id} created successfully!"
+    else:
+        msg = f"Ticket {ticket.ticket_id} created successfully!"
+    if assigned_to:
+        msg += f" Assigned to {assigned_to.email}."
+    return msg
+
+
 @login_required(login_url='/login/')
 def ticket_create_view(request):
+    customer_mode = 'existing'
+    customer_form = CustomerForm(prefix='new_customer')
+    can_assign = _user_can_assign_tickets(request.user)
+
     if request.method == "POST":
-        form = TicketForm(request.POST)
-        if form.is_valid():
-            ticket = form.save(commit=False)
-            ticket.save() # This triggers the custom save override to generate ticket_id
-            
-            # Handle attachment if uploaded
-            attachment_file = request.FILES.get('attachment')
-            if attachment_file:
-                TicketAttachments.objects.create(
-                    ticket=ticket,
-                    attachment=attachment_file
+        customer_mode = request.POST.get('customer_mode', 'existing')
+        form = TicketForm(request.POST, can_assign=can_assign)
+        create_new_customer = customer_mode == 'new'
+
+        if create_new_customer:
+            customer_form = CustomerForm(request.POST, prefix='new_customer')
+            if customer_form.is_valid() and form.is_valid():
+                customer = customer_form.save()
+                ticket = form.save(commit=False)
+                ticket.customer = customer
+                ticket = _save_ticket_with_attachment(request, ticket)
+                assigned_to = _apply_ticket_assignment(ticket, form, request.user)
+                messages.success(
+                    request,
+                    _ticket_created_message(ticket, assigned_to, customer.contact_name),
                 )
-                
-            messages.success(request, f"Ticket {ticket.ticket_id} created successfully!")
+                return redirect(f"/tickets/{ticket.ticket_id}/")
+            messages.error(request, "Please correct the errors below.")
+        elif form.is_valid():
+            ticket = form.save(commit=False)
+            ticket = _save_ticket_with_attachment(request, ticket)
+            assigned_to = _apply_ticket_assignment(ticket, form, request.user)
+            messages.success(request, _ticket_created_message(ticket, assigned_to))
             return redirect(f"/tickets/{ticket.ticket_id}/")
         else:
             messages.error(request, "Please correct the errors below.")
     else:
-        form = TicketForm()
+        form = TicketForm(can_assign=can_assign)
 
-    return render(request, "core/ticket_form.html", {"form": form})
+    customer_id = request.POST.get('customer') if request.method == 'POST' else None
+    agent_id = request.POST.get('assigned_to') if request.method == 'POST' and can_assign else None
+
+    return render(request, "core/ticket_form.html", {
+        "form": form,
+        "customer_form": customer_form,
+        "customer_mode": customer_mode,
+        "can_assign": can_assign,
+        "customer_search_initial": _hybrid_initial_customer(customer_id),
+        "agent_search_initial": _hybrid_initial_agent(agent_id),
+    })
 
 @login_required(login_url='/login/')
 def ticket_detail_view(request, ticket_id):
@@ -165,8 +336,7 @@ def ticket_detail_view(request, ticket_id):
             
         # 3. Update Assignment
         elif action == 'update_assignment':
-            # Only Admin and Receptionist can assign tickets
-            if request.user.role in ['Admin', 'Receptionist'] or request.user.is_staff:
+            if _user_can_assign_tickets(request.user):
                 assigned_to_id = request.POST.get('assigned_to')
                 if assigned_to_id:
                     assigned_user = get_object_or_404(MyUser, id=assigned_to_id)
@@ -217,28 +387,80 @@ def ticket_detail_view(request, ticket_id):
     }
     return render(request, "core/ticket_detail.html", context)
 
+def _build_user_assignment_rows(users):
+    """Per-user matrix: category rows × ticket status columns."""
+    user_ids = [u.id for u in users]
+    status_order = [status for status, _ in Ticket.STATUS]
+    if not user_ids:
+        return []
+
+    matrix_qs = (
+        TicketAssignment.objects.filter(assigned_to_id__in=user_ids)
+        .values(
+            'assigned_to_id',
+            'ticket__category_id',
+            'ticket__category__name',
+            'ticket__status',
+        )
+        .annotate(count=Count('ticket', distinct=True))
+    )
+
+    grid = defaultdict(lambda: defaultdict(dict))
+    category_names = {}
+    for row in matrix_qs:
+        user_id = row['assigned_to_id']
+        category_id = row['ticket__category_id']
+        category_names[category_id] = row['ticket__category__name']
+        grid[user_id][category_id][row['ticket__status']] = row['count']
+
+    user_rows = []
+    for user in users:
+        table_rows = []
+        total = 0
+        user_grid = grid[user.id]
+
+        for category_id in sorted(user_grid.keys(), key=lambda cid: category_names.get(cid, '')):
+            cells = []
+            row_total = 0
+            for status in status_order:
+                count = user_grid[category_id].get(status, 0)
+                cells.append({'status': status, 'count': count})
+                row_total += count
+            if row_total:
+                table_rows.append({
+                    'category_name': category_names[category_id],
+                    'cells': cells,
+                    'row_total': row_total,
+                })
+                total += row_total
+
+        user_rows.append({
+            'user': user,
+            'assignment_total': total,
+            'assignment_table': table_rows,
+        })
+    return user_rows
+
+
 @login_required(login_url='/login/')
 def user_list_view(request):
     if request.user.role != 'Admin':
         messages.error(request, "Access denied. Only Admins can manage users.")
         return redirect("/")
-    
-    users = MyUser.objects.all().order_by('-date_joined')
-    
-    # Quick metrics
-    total_users = users.count()
-    admins_count = users.filter(role='Admin').count()
-    agents_count = users.filter(role='Field Agent').count()
-    receptionists_count = users.filter(role='Receptionist').count()
-    
+
+    users = list(MyUser.objects.all().order_by('-date_joined'))
+    user_rows = _build_user_assignment_rows(users)
+    ticket_statuses = [status for status, _ in Ticket.STATUS]
+
     context = {
-        'users': users,
+        'user_rows': user_rows,
+        'ticket_statuses': ticket_statuses,
         'metrics': {
-            'total': total_users,
-            'admins': admins_count,
-            'agents': agents_count,
-            'receptionists': receptionists_count,
-        }
+            'total': len(users),
+            'admins': sum(1 for u in users if u.role == 'Admin'),
+            'agents': sum(1 for u in users if u.role == 'Field Agent'),
+            'receptionists': sum(1 for u in users if u.role == 'Receptionist'),
+        },
     }
     return render(request, "core/user_list.html", context)
 
@@ -269,27 +491,31 @@ def user_create_view(request):
         
     return render(request, "core/user_form.html", {"form": form})
 
+CUSTOMERS_PER_PAGE = 100
+
+
 @login_required(login_url='/login/')
 def customer_list_view(request):
-    search_query = request.GET.get('search', '')
-    customers = Customer.objects.annotate(ticket_count=Count('tickets')).order_by('-created_at')
+    search_query = request.GET.get('search', '').strip()
+    customers_qs = Customer.objects.annotate(ticket_count=Count('tickets')).order_by('-created_at')
 
     if search_query:
-        customers = customers.filter(
+        customers_qs = customers_qs.filter(
             Q(contact_name__icontains=search_query) |
             Q(email__icontains=search_query) |
             Q(phone__icontains=search_query) |
             Q(address__icontains=search_query)
         )
 
-    total_customers = Customer.objects.count()
-    total_tickets = Ticket.objects.filter(customer__isnull=False).count()
+    paginator = Paginator(customers_qs, CUSTOMERS_PER_PAGE)
+    page_obj = paginator.get_page(request.GET.get('page'))
 
     context = {
-        'customers': customers,
+        'page_obj': page_obj,
+        'customers': page_obj,
         'metrics': {
-            'total_customers': total_customers,
-            'total_tickets': total_tickets,
+            'total_customers': Customer.objects.count(),
+            'total_tickets': Ticket.objects.filter(customer__isnull=False).count(),
         },
         'search': search_query,
     }

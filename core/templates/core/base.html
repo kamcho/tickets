@@ -3,7 +3,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="description" content="Premium Customer Support Ticket Management Portal for Metrolinks Solution Ltd. Support requests, issues tracking, and agent assignments.">
     <title>{% block title %}Metrolinks Support Center{% endblock %}</title>
     
@@ -16,6 +16,7 @@
     {% block extra_head %}{% endblock %}
 </head>
 <body>
+<div class="site-layout">
 
     <!-- Top Navigation Bar -->
     <nav class="navbar" id="main-navbar">
@@ -23,11 +24,14 @@
             <!-- Brand Logo -->
             <a href="/" class="nav-brand" id="brand-link">
                 <div class="nav-brand-logo">M</div>
-                <span>METROLINKS <span class="highlight">SUPPORT</span></span>
+                <span class="nav-brand-text">
+                    <span class="nav-brand-full">METROLINKS <span class="highlight">SUPPORT</span></span>
+                    <span class="nav-brand-short">METROLINKS</span>
+                </span>
             </a>
 
             <!-- Menu Navigation Links -->
-            <ul class="nav-menu">
+            <ul class="nav-menu" id="nav-menu">
                 {% if user.is_authenticated %}
                     <li class="nav-item">
                         <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}" id="nav-home">
@@ -94,8 +98,8 @@
                     </div>
                     
                     <!-- Hamburger Toggle Button -->
-                    <button class="nav-toggle" id="nav-toggle-btn" aria-label="Toggle Navigation">
-                        <i data-feather="menu"></i>
+                    <button type="button" class="nav-toggle" id="nav-toggle-btn" aria-label="Open navigation menu" aria-expanded="false" aria-controls="nav-menu">
+                        <i data-feather="menu" class="nav-toggle-icon"></i>
                     </button>
                 {% else %}
                     <!-- Anonymous Guest Action -->
@@ -107,30 +111,29 @@
                 {% endif %}
             </div>
         </div>
+        <div class="nav-backdrop" id="nav-backdrop" aria-hidden="true"></div>
     </nav>
-
-    <!-- Message Alerts Center -->
-    {% if messages %}
-        <div class="messages-container" id="toast-messages-container">
-            {% for message in messages %}
-                <div class="alert-message alert-{{ message.tags|default:'info' }}" role="alert">
-                    {% if message.tags == 'error' %}
-                        <i data-feather="alert-octagon"></i>
-                    {% elif message.tags == 'success' %}
-                        <i data-feather="check-circle"></i>
-                    {% elif message.tags == 'warning' %}
-                        <i data-feather="alert-triangle"></i>
-                    {% else %}
-                        <i data-feather="info"></i>
-                    {% endif %}
-                    <span>{{ message }}</span>
-                </div>
-            {% endfor %}
-        </div>
-    {% endif %}
 
     <!-- Main Content Layout Section -->
     <main class="main-wrapper" id="main-content-section">
+        {% if messages %}
+            <div class="messages-container" id="toast-messages-container">
+                {% for message in messages %}
+                    <div class="alert-message alert-{{ message.tags|default:'info' }}" role="alert">
+                        {% if message.tags == 'error' %}
+                            <i data-feather="alert-octagon"></i>
+                        {% elif message.tags == 'success' %}
+                            <i data-feather="check-circle"></i>
+                        {% elif message.tags == 'warning' %}
+                            <i data-feather="alert-triangle"></i>
+                        {% else %}
+                            <i data-feather="info"></i>
+                        {% endif %}
+                        <span>{{ message }}</span>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
         {% block content %}
         {% endblock %}
     </main>
@@ -142,6 +145,8 @@
             <span class="footer-text" id="footer-copyright">&copy; {% now "Y" %} Metrolinks Solution Ltd. All rights reserved. Customer Support Portal.</span>
         </div>
     </footer>
+
+</div><!-- /.site-layout -->
 
     <!-- Initialize Icons and Scripting -->
     <script>
@@ -165,30 +170,63 @@
             }
         });
 
-        // Hamburger Menu Toggle Handler
+        // Mobile navigation
+        function setNavOpen(isOpen) {
+            const toggleBtn = document.getElementById('nav-toggle-btn');
+            const navMenu = document.getElementById('nav-menu');
+            const backdrop = document.getElementById('nav-backdrop');
+            if (!toggleBtn || !navMenu) return;
+
+            navMenu.classList.toggle('show', isOpen);
+            document.body.classList.toggle('nav-open', isOpen);
+            if (backdrop) {
+                backdrop.classList.toggle('show', isOpen);
+                backdrop.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+            }
+            toggleBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+            toggleBtn.setAttribute('aria-label', isOpen ? 'Close navigation menu' : 'Open navigation menu');
+            toggleBtn.innerHTML = isOpen
+                ? '<i data-feather="x" class="nav-toggle-icon"></i>'
+                : '<i data-feather="menu" class="nav-toggle-icon"></i>';
+            feather.replace();
+        }
+
+        function closeNav() {
+            setNavOpen(false);
+        }
+
         document.addEventListener('DOMContentLoaded', () => {
             const toggleBtn = document.getElementById('nav-toggle-btn');
-            const navMenu = document.querySelector('.nav-menu');
-            
+            const navMenu = document.getElementById('nav-menu');
+            const backdrop = document.getElementById('nav-backdrop');
+
             if (toggleBtn && navMenu) {
                 toggleBtn.addEventListener('click', function(e) {
                     e.stopPropagation();
-                    navMenu.classList.toggle('show');
-                    if (navMenu.classList.contains('show')) {
-                        toggleBtn.innerHTML = '<i data-feather="x"></i>';
-                    } else {
-                        toggleBtn.innerHTML = '<i data-feather="menu"></i>';
-                    }
-                    feather.replace();
+                    setNavOpen(!navMenu.classList.contains('show'));
                 });
-                
-                // Close navMenu when clicking outside
+
+                if (backdrop) {
+                    backdrop.addEventListener('click', closeNav);
+                }
+
+                navMenu.querySelectorAll('.nav-link').forEach(link => {
+                    link.addEventListener('click', closeNav);
+                });
+
                 window.addEventListener('click', function(e) {
-                    if (!navMenu.contains(e.target) && !toggleBtn.contains(e.target)) {
-                        navMenu.classList.remove('show');
-                        toggleBtn.innerHTML = '<i data-feather="menu"></i>';
-                        feather.replace();
+                    const navbar = document.getElementById('main-navbar');
+                    if (navbar && !navbar.contains(e.target)) {
+                        closeNav();
                     }
+                });
+
+                window.addEventListener('keydown', function(e) {
+                    if (e.key === 'Escape') closeNav();
+                });
+
+                window.addEventListener('resize', function() {
+                    if (window.innerWidth > 992) closeNav();
                 });
             }
 

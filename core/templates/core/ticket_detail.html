@@ -39,7 +39,7 @@
             {% endif %}
         </div>
         <h1 style="font-size: 2.25rem; font-weight: 800; letter-spacing: -0.025em; margin-bottom: 0.5rem; color: var(--text-primary);">
-            {{ ticket.subject|default:"(No Subject)" }}
+            {{ ticket.description|truncatewords:15 }}
         </h1>
         <div style="display: flex; gap: 1.5rem; flex-wrap: wrap; color: var(--text-secondary); font-size: 0.875rem;">
             <span><strong style="color: var(--text-primary);">Category:</strong> {{ ticket.category.name }}</span>

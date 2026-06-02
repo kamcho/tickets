@@ -6,17 +6,159 @@
 <style>
     .user-row-hover:hover {
         background: rgba(255, 255, 255, 0.04) !important;
-        transform: scale(1.002);
     }
     .user-row-hover {
         transition: var(--transition-smooth);
+    }
+    .user-assignment-cards {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 1.5rem;
+        margin-top: 2.5rem;
+        width: 100%;
+    }
+    .user-assignment-card {
+        padding: 1.75rem 2rem;
+        width: 100%;
+    }
+    .user-assignment-card-header {
+        display: flex;
+        align-items: center;
+        gap: 0.85rem;
+        margin-bottom: 1.15rem;
+        padding-bottom: 1rem;
+        border-bottom: 1px solid var(--border-color);
+    }
+    .user-assignment-card-header .user-avatar {
+        width: 44px;
+        height: 44px;
+        border-radius: 50%;
+        font-size: 1rem;
+        font-weight: 700;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: linear-gradient(135deg, var(--accent) 0%, var(--primary) 100%);
+        color: white;
+        flex-shrink: 0;
+    }
+    .user-assignment-card-name {
+        font-weight: 700;
+        font-size: 1rem;
+        color: var(--text-primary);
+    }
+    .user-assignment-card-email {
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+    }
+    .user-assignment-empty {
+        font-size: 0.85rem;
+        color: var(--text-muted);
+        font-style: italic;
+    }
+    .user-assignment-total {
+        margin-top: 0.75rem;
+        font-size: 0.8rem;
+        font-weight: 600;
+        color: var(--text-secondary);
+        text-align: right;
+    }
+    .assignment-matrix-wrap {
+        width: 100%;
+        max-width: 100%;
+        min-width: 0;
+        overflow-x: auto;
+        -webkit-overflow-scrolling: touch;
+        overscroll-behavior-x: contain;
+    }
+    .assignment-matrix-table {
+        width: 100%;
+        border-collapse: collapse;
+        table-layout: fixed;
+        font-size: 0.9rem;
+    }
+    .assignment-matrix-table th,
+    .assignment-matrix-table td {
+        padding: 0.65rem 0.5rem;
+        border: 1px solid var(--border-color);
+        text-align: center;
+        vertical-align: middle;
+    }
+    .assignment-matrix-table thead th {
+        background: rgba(99, 102, 241, 0.12);
+        color: var(--text-secondary);
+        font-weight: 700;
+        font-size: 0.75rem;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        line-height: 1.25;
+    }
+    .assignment-matrix-table .matrix-status-label {
+        display: block;
+        word-break: break-word;
+    }
+    .assignment-matrix-table .matrix-category-col {
+        width: 20%;
+        text-align: left;
+    }
+    .assignment-matrix-table thead th.matrix-category-col {
+        text-align: left;
+    }
+    .assignment-matrix-table tbody th.matrix-category-col {
+        font-weight: 600;
+        font-size: 0.88rem;
+        color: var(--text-primary);
+        background: rgba(255, 255, 255, 0.02);
+        word-break: break-word;
+    }
+    .assignment-matrix-table .matrix-status-col {
+        width: 12%;
+    }
+    .assignment-matrix-table .matrix-total-col {
+        width: 8%;
+    }
+    .assignment-matrix-table td.matrix-count {
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+    .assignment-matrix-table td.matrix-count--zero {
+        color: var(--text-muted);
+        font-weight: 500;
+    }
+    .assignment-matrix-table td.matrix-row-total,
+    .assignment-matrix-table th.matrix-total-col {
+        background: rgba(6, 182, 212, 0.08);
+        font-weight: 800;
+        color: var(--accent);
+    }
+    @media (max-width: 768px) {
+        .user-assignment-card {
+            padding: 1.25rem 1rem;
+        }
+        .assignment-matrix-table {
+            font-size: 0.8rem;
+        }
+        .assignment-matrix-table thead th {
+            font-size: 0.65rem;
+            padding: 0.5rem 0.25rem;
+        }
+        .assignment-matrix-table th,
+        .assignment-matrix-table td {
+            padding: 0.5rem 0.2rem;
+        }
+        .assignment-matrix-table .matrix-category-col {
+            width: 22%;
+        }
+        .assignment-matrix-table .matrix-status-col {
+            width: 11%;
+        }
     }
 </style>
 
 <div class="dashboard-header" style="margin-bottom: 2.5rem; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
     <div>
         <h1 style="font-size: 2rem; font-weight: 800; letter-spacing: -0.025em; margin-bottom: 0.25rem;">User Directory</h1>
-        <p style="color: var(--text-secondary); font-size: 0.95rem;">Manage and provision access credentials for Metrolinks solution agents and administrators.</p>
+        <p style="color: var(--text-secondary); font-size: 0.95rem;">Manage users and review ticket assignments by category and status.</p>
     </div>
     <a href="{% url 'user_create' %}" class="btn btn-primary" id="btn-create-user-header">
         <i data-feather="user-plus" style="width: 16px; height: 16px;"></i> Add New User
@@ -24,8 +166,7 @@
 </div>
 
 <!-- Metrics Cards Section -->
-<div class="metrics-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.5rem; margin-bottom: 3rem;">
-    <!-- Card 1: Total Users -->
+<div class="metrics-grid">
     <div class="card" style="display: flex; align-items: center; gap: 1.5rem; padding: 1.5rem; height: 100%;">
         <div style="background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-color); border-radius: 12px; width: 54px; height: 54px; display: flex; align-items: center; justify-content: center; color: var(--text-primary);">
             <i data-feather="users" style="width: 24px; height: 24px;"></i>
@@ -35,8 +176,6 @@
             <h2 style="font-size: 1.75rem; font-weight: 800; margin-top: 0.15rem; color: var(--text-primary);">{{ metrics.total }}</h2>
         </div>
     </div>
-
-    <!-- Card 2: Admins -->
     <div class="card" style="display: flex; align-items: center; gap: 1.5rem; padding: 1.5rem; height: 100%;">
         <div style="background: rgba(99, 102, 241, 0.15); border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 12px; width: 54px; height: 54px; display: flex; align-items: center; justify-content: center; color: var(--primary);">
             <i data-feather="shield" style="width: 24px; height: 24px;"></i>
@@ -46,8 +185,6 @@
             <h2 style="font-size: 1.75rem; font-weight: 800; margin-top: 0.15rem; color: var(--primary);">{{ metrics.admins }}</h2>
         </div>
     </div>
-
-    <!-- Card 3: Field Agents -->
     <div class="card" style="display: flex; align-items: center; gap: 1.5rem; padding: 1.5rem; height: 100%;">
         <div style="background: rgba(6, 182, 212, 0.15); border: 1px solid rgba(6, 182, 212, 0.3); border-radius: 12px; width: 54px; height: 54px; display: flex; align-items: center; justify-content: center; color: var(--accent);">
             <i data-feather="briefcase" style="width: 24px; height: 24px;"></i>
@@ -57,8 +194,6 @@
             <h2 style="font-size: 1.75rem; font-weight: 800; margin-top: 0.15rem; color: var(--accent);">{{ metrics.agents }}</h2>
         </div>
     </div>
-
-    <!-- Card 4: Receptionists -->
     <div class="card" style="display: flex; align-items: center; gap: 1.5rem; padding: 1.5rem; height: 100%;">
         <div style="background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3); border-radius: 12px; width: 54px; height: 54px; display: flex; align-items: center; justify-content: center; color: var(--warning);">
             <i data-feather="headphones" style="width: 24px; height: 24px;"></i>
@@ -70,31 +205,31 @@
     </div>
 </div>
 
-<!-- Main Table Card -->
-<div class="card" style="padding: 0; overflow-x: auto; border: 1px solid var(--border-color); background: var(--bg-card);">
-    <table style="width: 100%; border-collapse: collapse; text-align: left; min-width: 800px;">
+<!-- Users table -->
+<div class="card card--flush" style="border: 1px solid var(--border-color); background: var(--bg-card);">
+    <div class="table-scroll">
+    <table style="width: 100%; border-collapse: collapse; text-align: left; min-width: 700px;">
         <thead>
             <tr style="border-bottom: 1px solid var(--border-color); background: rgba(255, 255, 255, 0.02);">
                 <th style="padding: 1.25rem 1.5rem; font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary);">User</th>
                 <th style="padding: 1.25rem 1.5rem; font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary);">Role</th>
                 <th style="padding: 1.25rem 1.5rem; font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary);">Phone</th>
                 <th style="padding: 1.25rem 1.5rem; font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary);">Date Joined</th>
-                <th style="padding: 1.25rem 1.5rem; font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); text-align: right;">Status</th>
+                <th style="padding: 1.25rem 1.5rem; font-size: 0.85rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); text-align: right;">Account</th>
             </tr>
         </thead>
         <tbody>
-            {% for u in users %}
-                <tr style="border-bottom: 1px solid var(--border-color); background: transparent;" class="user-row-hover">
-                    <td style="padding: 1.25rem 1.5rem; display: flex; align-items: center; gap: 1rem;">
-                        <div class="user-avatar" style="width: 40px; height: 40px; border-radius: 50%; font-size: 1rem; font-weight: 700; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, var(--accent) 0%, var(--primary) 100%); color: white;">
-                            {{ u.email|slice:":1"|upper }}
-                        </div>
-                        <div>
-                            <div style="font-weight: 600; font-size: 0.95rem; color: var(--text-primary);">
-                                {{ u.first_name }} {{ u.last_name }}
+            {% for row in user_rows %}
+                {% with u=row.user %}
+                <tr style="border-bottom: 1px solid var(--border-color);" class="user-row-hover">
+                    <td style="padding: 1.25rem 1.5rem;">
+                        <div style="display: flex; align-items: center; gap: 1rem;">
+                            <div class="user-avatar" style="width: 40px; height: 40px; border-radius: 50%; font-size: 1rem; font-weight: 700; display: flex; align-items: center; justify-content: center; background: linear-gradient(135deg, var(--accent) 0%, var(--primary) 100%); color: white;">
+                                {{ u.email|slice:":1"|upper }}
                             </div>
-                            <div style="font-size: 0.85rem; color: var(--text-secondary);">
-                                {{ u.email }}
+                            <div>
+                                <div style="font-weight: 600; font-size: 0.95rem; color: var(--text-primary);">{{ u.first_name }} {{ u.last_name }}</div>
+                                <div style="font-size: 0.85rem; color: var(--text-secondary);">{{ u.email }}</div>
                             </div>
                         </div>
                     </td>
@@ -113,36 +248,85 @@
                             </span>
                         {% endif %}
                     </td>
-                    <td style="padding: 1.25rem 1.5rem; font-size: 0.9rem; color: var(--text-secondary);">
-                        {{ u.phone|default:"—" }}
-                    </td>
-                    <td style="padding: 1.25rem 1.5rem; font-size: 0.9rem; color: var(--text-secondary);">
-                        {{ u.date_joined|date:"M d, Y" }}
-                    </td>
+                    <td style="padding: 1.25rem 1.5rem; font-size: 0.9rem; color: var(--text-secondary);">{{ u.phone|default:"—" }}</td>
+                    <td style="padding: 1.25rem 1.5rem; font-size: 0.9rem; color: var(--text-secondary);">{{ u.date_joined|date:"M d, Y" }}</td>
                     <td style="padding: 1.25rem 1.5rem; text-align: right;">
                         {% if u.is_active %}
-                            <span style="display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.85rem; font-weight: 600; color: var(--success);">
-                                <span style="width: 6px; height: 6px; border-radius: 50%; background: var(--success); display: inline-block; box-shadow: 0 0 8px var(--success);"></span>
-                                Active
-                            </span>
+                            <span style="font-size: 0.85rem; font-weight: 600; color: var(--success);">Active</span>
                         {% else %}
-                            <span style="display: inline-flex; align-items: center; gap: 0.25rem; font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">
-                                <span style="width: 6px; height: 6px; border-radius: 50%; background: var(--text-muted); display: inline-block;"></span>
-                                Inactive
-                            </span>
+                            <span style="font-size: 0.85rem; font-weight: 600; color: var(--text-muted);">Inactive</span>
                         {% endif %}
                     </td>
                 </tr>
+                {% endwith %}
             {% empty %}
                 <tr>
-                    <td colspan="5" style="padding: 3rem; text-align: center; color: var(--text-secondary);">
-                        <i data-feather="info" style="width: 32px; height: 32px; color: var(--text-muted); margin-bottom: 0.75rem;"></i>
-                        <p style="font-weight: 600;">No users found</p>
-                        <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">Try creating a new user to populate the directory.</p>
-                    </td>
+                    <td colspan="5" style="padding: 3rem; text-align: center; color: var(--text-secondary);">No users found.</td>
                 </tr>
             {% endfor %}
         </tbody>
     </table>
+    </div>
 </div>
+
+<!-- Assignment overview cards -->
+<section style="margin-top: 2.5rem;">
+    <div style="margin-bottom: 1.25rem;">
+        <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary);">Ticket assignments by user</h2>
+        <p style="color: var(--text-secondary); font-size: 0.85rem; margin-top: 0.25rem;">Each card shows ticket counts by category (rows) and status (columns).</p>
+    </div>
+
+    <div class="user-assignment-cards">
+        {% for row in user_rows %}
+            {% with u=row.user %}
+            <article class="card user-assignment-card">
+                <div class="user-assignment-card-header">
+                    <div class="user-avatar">{{ u.email|slice:":1"|upper }}</div>
+                    <div style="min-width: 0; flex: 1;">
+                        <div class="user-assignment-card-name">{{ u.first_name }} {{ u.last_name }}</div>
+                        <div class="user-assignment-card-email">{{ u.email }}</div>
+                        <div style="margin-top: 0.35rem; font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: var(--text-muted);">{{ u.role }}</div>
+                    </div>
+                </div>
+
+                {% if row.assignment_table %}
+                    <div class="assignment-matrix-wrap">
+                        <table class="assignment-matrix-table">
+                            <thead>
+                                <tr>
+                                    <th class="matrix-category-col">Category</th>
+                                    {% for status in ticket_statuses %}
+                                        <th class="matrix-status-col" title="{{ status }}">
+                                            <span class="matrix-status-label">
+                                                {% if status == 'In Progress' %}In Prog{% else %}{{ status }}{% endif %}
+                                            </span>
+                                        </th>
+                                    {% endfor %}
+                                    <th class="matrix-total-col">Total</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for table_row in row.assignment_table %}
+                                    <tr>
+                                        <th scope="row" class="matrix-category-col">{{ table_row.category_name }}</th>
+                                        {% for cell in table_row.cells %}
+                                            <td class="matrix-count{% if not cell.count %} matrix-count--zero{% endif %}">
+                                                {% if cell.count %}{{ cell.count }}{% else %}—{% endif %}
+                                            </td>
+                                        {% endfor %}
+                                        <td class="matrix-row-total">{{ table_row.row_total }}</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="user-assignment-total">{{ row.assignment_total }} ticket{{ row.assignment_total|pluralize }} assigned</div>
+                {% else %}
+                    <p class="user-assignment-empty">No tickets assigned</p>
+                {% endif %}
+            </article>
+            {% endwith %}
+        {% endfor %}
+    </div>
+</section>
 {% endblock %}

@@ -19,7 +19,7 @@
 </div>
 
 <!-- Metrics Cards Section -->
-<div class="metrics-grid" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 1.5rem; margin-bottom: 3rem;">
+<div class="metrics-grid">
     <!-- Card 1: Total -->
     <a href="?status=" style="text-decoration: none;">
         <div class="card" style="display: flex; align-items: center; gap: 1.5rem; padding: 1.5rem; height: 100%;">
@@ -75,10 +75,10 @@
 
 <!-- Filters & Search Section -->
 <div class="card" style="padding: 1.5rem; margin-bottom: 2rem;">
-    <form method="get" style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end;">
-        <div class="form-group" style="flex: 1; min-width: 200px; margin-bottom: 0;">
+    <form method="get" class="filter-row" style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end;">
+        <div class="form-group" style="flex: 1; min-width: 0; margin-bottom: 0;">
             <label for="search" class="form-label">Search Tickets</label>
-            <input type="text" name="search" id="search" class="form-input" placeholder="Search ID, subject or description..." value="{{ filters.search }}">
+            <input type="text" name="search" id="search" class="form-input" placeholder="Search ID or description..." value="{{ filters.search }}">
         </div>
         
         <div class="form-group" style="width: 160px; margin-bottom: 0;">
@@ -137,15 +137,16 @@
     </div>
 
     <!-- Responsive Table -->
-    <div style="overflow-x: auto; width: 100%;">
-        <table style="width: 100%; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
+    <div class="table-scroll">
+        <table style="width: 100%; min-width: 680px; border-collapse: collapse; text-align: left; font-size: 0.9rem;">
             <thead>
                 <tr style="border-bottom: 1px solid var(--border-color); color: var(--text-secondary); font-weight: 600;">
                     <th style="padding: 1rem 0.75rem;">Ticket ID</th>
-                    <th style="padding: 1rem 0.75rem;">Subject</th>
+                    <th style="padding: 1rem 0.75rem;">Description</th>
                     <th style="padding: 1rem 0.75rem;">Category</th>
                     <th style="padding: 1rem 0.75rem;">Priority</th>
                     <th style="padding: 1rem 0.75rem;">Status</th>
+                    <th style="padding: 1rem 0.75rem;">Assigned Agent</th>
                     <th style="padding: 1rem 0.75rem;">Created</th>
                 </tr>
             </thead>
@@ -154,7 +155,7 @@
                     <tr style="border-bottom: 1px solid var(--border-color); cursor: pointer; transition: var(--transition-smooth);" class="table-row-hover" onclick="window.location.href='/tickets/{{ ticket.ticket_id }}/'">
                         <td style="padding: 1rem 0.75rem; font-weight: 700; color: var(--primary);">{{ ticket.ticket_id }}</td>
                         <td style="padding: 1rem 0.75rem; color: var(--text-primary); font-weight: 500;">
-                            {{ ticket.subject|default:"(No Subject)" }}
+                            {{ ticket.description|truncatewords:12 }}
                         </td>
                         <td style="padding: 1rem 0.75rem; color: var(--text-secondary);">{{ ticket.category.name }}</td>
                         <td style="padding: 1rem 0.75rem;">
@@ -179,11 +180,24 @@
                                 <span style="background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-color); color: var(--text-muted); font-size: 0.75rem; padding: 0.25rem 0.5rem; border-radius: 6px; font-weight: 600;">Closed</span>
                             {% endif %}
                         </td>
+                        <td style="padding: 1rem 0.75rem; color: var(--text-secondary); font-size: 0.85rem;">
+                            {% with assignment=ticket.ticketassignment_set.first %}
+                                {% if assignment %}
+                                    {% if assignment.assigned_to.first_name %}
+                                        <span style="color: var(--text-primary); font-weight: 600;">{{ assignment.assigned_to.first_name }} {{ assignment.assigned_to.last_name }}</span>
+                                    {% else %}
+                                        <span style="color: var(--text-primary); font-weight: 600;">{{ assignment.assigned_to.email }}</span>
+                                    {% endif %}
+                                {% else %}
+                                    <span style="color: var(--text-muted); font-style: italic;">Unassigned</span>
+                                {% endif %}
+                            {% endwith %}
+                        </td>
                         <td style="padding: 1rem 0.75rem; color: var(--text-muted);">{{ ticket.created_at|date:"d M Y H:i" }}</td>
                     </tr>
                 {% empty %}
                     <tr>
-                        <td colspan="6" style="padding: 3rem 0.75rem; text-align: center; color: var(--text-secondary);">
+                        <td colspan="7" style="padding: 3rem 0.75rem; text-align: center; color: var(--text-secondary);">
                             <div style="font-size: 2rem; margin-bottom: 0.5rem;">📁</div>
                             <span style="font-weight: 600;">No tickets found.</span>
                             <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">Try adjusting your filters or create a new ticket.</p>

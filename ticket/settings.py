@@ -29,7 +29,35 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-fallback-w!6pye!qhw01mevr7
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'True').lower() in ('true', '1', 't', 'y', 'yes')
 
-ALLOWED_HOSTS = [h.strip() for h in os.getenv('ALLOWED_HOSTS', '127.0.0.1,localhost,metrolinkssolutionltd.co.ke,tickets.metrolinkssolutionltd.co.ke').split(',') if h.strip()]
+ALLOWED_HOSTS = [h.strip() for h in os.getenv(
+    'ALLOWED_HOSTS',
+    '127.0.0.1,localhost,metrolinkssolutionltd.co.ke,tickets.metrolinkssolutionltd.co.ke,'
+    '.ngrok-free.dev,.ngrok-free.app',
+).split(',') if h.strip()]
+
+# Required for HTTPS tunnels (e.g. ngrok) when submitting forms from a phone/browser.
+CSRF_TRUSTED_ORIGINS = [o.strip() for o in os.getenv(
+    'CSRF_TRUSTED_ORIGINS',
+    'https://*.ngrok-free.dev,https://*.ngrok-free.app',
+).split(',') if o.strip()]
+
+# In DEBUG, always permit ngrok subdomains (tunnel URL changes each session).
+if DEBUG:
+    for _ngrok_host in ('.ngrok-free.dev', '.ngrok-free.app', '.ngrok.io'):
+        if _ngrok_host not in ALLOWED_HOSTS:
+            ALLOWED_HOSTS.append(_ngrok_host)
+    for _ngrok_origin in ('https://*.ngrok-free.dev', 'https://*.ngrok-free.app'):
+        if _ngrok_origin not in CSRF_TRUSTED_ORIGINS:
+            CSRF_TRUSTED_ORIGINS.append(_ngrok_origin)
+
+# Absolute URL for the tickets portal login (landing page "Client Portal" link).
+# Leave unset in development — links use the current host (e.g. http://127.0.0.1:8000/login/).
+TICKETS_PORTAL_LOGIN_URL = os.getenv('TICKETS_PORTAL_LOGIN_URL', '').strip()
+if not TICKETS_PORTAL_LOGIN_URL and not DEBUG:
+    TICKETS_PORTAL_LOGIN_URL = 'https://tickets.metrolinkssolutionltd.co.ke/login/'
+
+# Max options returned in hybrid search dropdowns (customers, agents, etc.)
+HYBRID_SEARCH_RESULT_LIMIT = int(os.getenv('HYBRID_SEARCH_RESULT_LIMIT', '20'))
 
 
 # Application definition
@@ -60,7 +88,8 @@ MIDDLEWARE = [
 
 ROOT_URLCONF = 'ticket.urls'
 ROOT_HOSTCONF = 'ticket.hosts'
-DEFAULT_HOST = 'www'
+# Bare host (127.0.0.1 / localhost) uses this named pattern. In dev, 'default' includes /login/.
+DEFAULT_HOST = 'default' if DEBUG else 'www'
 
 TEMPLATES = [
     {
@@ -72,6 +101,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'core.context_processors.portal_urls',
             ],
         },
     },
