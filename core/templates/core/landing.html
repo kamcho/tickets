@@ -1,3 +1,4 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -132,7 +133,7 @@
             </div>
         </div>
     </nav>
-
+{% if true %}
     <!-- Hero Section -->
     <section id="home" class="bg-[#78288C] pt-28 pb-8 flex flex-col items-center">
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full">
@@ -610,7 +611,7 @@
             </div>
         </div>
     </footer>
-
+{% endif %}
     <script>
         // Smooth scrolling for navigation links
         document.querySelectorAll('a[href^="#"]').forEach(anchor => {
