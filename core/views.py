@@ -2,9 +2,12 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.db.models import Q
-from .models import MyUser, Ticket, TicketCategory, TicketAssignment, TicketComments, TicketAttachments
-from .forms import TicketForm, CommentForm, AttachmentForm, UserCreateForm
+from django.db.models import Q, Count
+from .models import MyUser, Ticket, TicketCategory, TicketAssignment, TicketComments, TicketAttachments, Customer
+from .forms import TicketForm, CommentForm, AttachmentForm, UserCreateForm, CustomerForm
+
+def landing_page(request):
+    return render(request, "core/landing.html")
 
 def login_view(request):
     if request.user.is_authenticated:
@@ -265,3 +268,69 @@ def user_create_view(request):
         form = UserCreateForm()
         
     return render(request, "core/user_form.html", {"form": form})
+
+@login_required(login_url='/login/')
+def customer_list_view(request):
+    search_query = request.GET.get('search', '')
+    customers = Customer.objects.annotate(ticket_count=Count('tickets')).order_by('-created_at')
+
+    if search_query:
+        customers = customers.filter(
+            Q(contact_name__icontains=search_query) |
+            Q(email__icontains=search_query) |
+            Q(phone__icontains=search_query) |
+            Q(address__icontains=search_query)
+        )
+
+    total_customers = Customer.objects.count()
+    total_tickets = Ticket.objects.filter(customer__isnull=False).count()
+
+    context = {
+        'customers': customers,
+        'metrics': {
+            'total_customers': total_customers,
+            'total_tickets': total_tickets,
+        },
+        'search': search_query,
+    }
+    return render(request, "core/customer_list.html", context)
+
+@login_required(login_url='/login/')
+def customer_create_view(request):
+    if request.user.role not in ['Admin', 'Receptionist']:
+        messages.error(request, "Access denied. Only Admins and Receptionists can add customers.")
+        return redirect("customer_list")
+
+    if request.method == "POST":
+        form = CustomerForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f"Customer '{form.cleaned_data['contact_name']}' added successfully!")
+            return redirect("customer_list")
+        else:
+            messages.error(request, "Please correct the errors below.")
+    else:
+        form = CustomerForm()
+
+    return render(request, "core/customer_form.html", {"form": form})
+
+@login_required(login_url='/login/')
+def customer_detail_view(request, pk):
+    customer = get_object_or_404(Customer, pk=pk)
+    tickets = Ticket.objects.filter(customer=customer).order_by('-created_at')
+
+    open_count = tickets.filter(status='Open').count()
+    in_progress_count = tickets.filter(status='In Progress').count()
+    resolved_count = tickets.filter(status__in=['Resolved', 'Closed']).count()
+
+    context = {
+        'customer': customer,
+        'tickets': tickets,
+        'metrics': {
+            'total': tickets.count(),
+            'open': open_count,
+            'in_progress': in_progress_count,
+            'resolved': resolved_count,
+        }
+    }
+    return render(request, "core/customer_detail.html", context)

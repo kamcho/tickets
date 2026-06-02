@@ -19,6 +19,18 @@
         <form method="post" enctype="multipart/form-data" id="ticket-create-form">
             {% csrf_token %}
 
+            <!-- Customer -->
+            <div class="form-group">
+                <label for="{{ form.customer.id_for_label }}" class="form-label">Customer</label>
+                {{ form.customer }}
+                {% if form.customer.errors %}
+                    <span style="color: var(--danger); font-size: 0.8rem; margin-top: 0.25rem;">{{ form.customer.errors.0 }}</span>
+                {% endif %}
+                <span style="color: var(--text-muted); font-size: 0.8rem; margin-top: 0.25rem;">
+                    Don't see the customer? <a href="/customers/create/" style="color: var(--accent); text-decoration: underline;">Add new customer</a>
+                </span>
+            </div>
+
             <!-- Subject -->
             <div class="form-group">
                 <label for="{{ form.subject.id_for_label }}" class="form-label">Subject</label>

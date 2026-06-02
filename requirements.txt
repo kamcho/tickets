@@ -1,2 +1,4 @@
-django>=5.0
-python-dotenv>=1.0.1
+django
+python-dotenv
+whitenoise
+django-hosts

@@ -1,5 +1,5 @@
 from django import forms
-from .models import Ticket, TicketComments, TicketAttachments, TicketCategory, MyUser
+from .models import Ticket, TicketComments, TicketAttachments, TicketCategory, MyUser, Customer
 
 class UserCreateForm(forms.ModelForm):
     password = forms.CharField(widget=forms.PasswordInput(attrs={
@@ -49,8 +49,11 @@ class UserCreateForm(forms.ModelForm):
 class TicketForm(forms.ModelForm):
     class Meta:
         model = Ticket
-        fields = ['subject', 'description', 'category', 'priority']
+        fields = ['customer', 'subject', 'description', 'category', 'priority']
         widgets = {
+            'customer': forms.Select(attrs={
+                'class': 'form-input'
+            }),
             'subject': forms.TextInput(attrs={
                 'class': 'form-input',
                 'placeholder': 'Summarize the issue briefly...'
@@ -65,6 +68,34 @@ class TicketForm(forms.ModelForm):
             }),
             'priority': forms.Select(attrs={
                 'class': 'form-input'
+            }),
+        }
+
+class CustomerForm(forms.ModelForm):
+    class Meta:
+        model = Customer
+        fields = ['contact_name', 'email', 'phone', 'address', 'location']
+        widgets = {
+            'contact_name': forms.TextInput(attrs={
+                'class': 'form-input',
+                'placeholder': 'John Kamau'
+            }),
+            'email': forms.EmailInput(attrs={
+                'class': 'form-input',
+                'placeholder': 'john@company.co.ke'
+            }),
+            'phone': forms.TextInput(attrs={
+                'class': 'form-input',
+                'placeholder': '+254 7XX XXX XXX'
+            }),
+            'address': forms.Textarea(attrs={
+                'class': 'form-input',
+                'rows': 2,
+                'placeholder': 'Physical address or P.O. Box...'
+            }),
+            'location': forms.TextInput(attrs={
+                'class': 'form-input',
+                'placeholder': 'Paste Google Maps link or type location address...'
             }),
         }
 

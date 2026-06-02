@@ -1,15 +1,13 @@
-
 from django.urls import path
 from .views import (
-    login_view, logout_view, home_view, landing_page,
+    login_view, logout_view, home_view,
     ticket_create_view, ticket_detail_view,
     user_list_view, user_create_view,
     customer_list_view, customer_create_view, customer_detail_view,
 )
 
 urlpatterns = [
-    path("", landing_page, name="landing"),
-    path("home/", home_view, name="home"),
+    path("", home_view, name="home"),
     path("login/", login_view, name="login"),
     path("logout/", logout_view, name="logout"),
     path("tickets/create/", ticket_create_view, name="ticket_create"),

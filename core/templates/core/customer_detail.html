@@ -1,0 +1,137 @@
+{% extends 'core/base.html' %}
+
+{% block title %}{{ customer.contact_name }} - Customer Profile{% endblock %}
+
+{% block content %}
+<!-- Back Navigation -->
+<div style="margin-bottom: 2rem;">
+    <a href="/customers/" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.85rem;" id="btn-back-customers">
+        <i data-feather="arrow-left" style="width: 14px; height: 14px;"></i> Back to Customers
+    </a>
+</div>
+
+<!-- Customer Profile Header -->
+<div class="card" style="padding: 2rem; margin-bottom: 2rem;">
+    <div style="display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;">
+        <!-- Avatar -->
+        <div style="width: 72px; height: 72px; border-radius: 50%; background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%); display: flex; align-items: center; justify-content: center; font-size: 1.75rem; color: white; font-weight: 800; flex-shrink: 0;">
+            {{ customer.contact_name|slice:":1"|upper }}
+        </div>
+        <!-- Info -->
+        <div style="flex: 1;">
+            <h1 style="font-size: 1.75rem; font-weight: 800; letter-spacing: -0.025em; margin-bottom: 0.25rem; color: var(--text-primary);">
+                {{ customer.contact_name }}
+            </h1>
+            <div style="display: flex; gap: 1.5rem; flex-wrap: wrap; color: var(--text-secondary); font-size: 0.875rem;">
+                <span><i data-feather="mail" style="width: 13px; height: 13px; vertical-align: middle;"></i> {{ customer.email }}</span>
+                <span><i data-feather="phone" style="width: 13px; height: 13px; vertical-align: middle;"></i> {{ customer.phone }}</span>
+                {% if customer.address %}
+                    <span><i data-feather="map-pin" style="width: 13px; height: 13px; vertical-align: middle;"></i> {{ customer.address }}</span>
+                {% endif %}
+                {% if customer.location %}
+                    <a href="{{ customer.location }}" target="_blank" style="color: var(--accent); text-decoration: none; font-weight: 600;">
+                        <i data-feather="navigation" style="width: 13px; height: 13px; vertical-align: middle;"></i> View on Map
+                    </a>
+                {% endif %}
+            </div>
+        </div>
+        <!-- Quick Actions -->
+        <div style="display: flex; gap: 0.75rem;">
+            <a href="/tickets/create/" class="btn btn-primary" style="padding: 0.6rem 1.25rem; font-size: 0.85rem;">
+                <i data-feather="plus-circle" style="width: 14px; height: 14px;"></i> Open Ticket
+            </a>
+        </div>
+    </div>
+</div>
+
+<!-- Ticket Stats -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1.25rem; margin-bottom: 2rem;">
+    <div class="card" style="padding: 1.25rem; text-align: center;">
+        <div style="font-size: 2rem; font-weight: 800; color: var(--primary); letter-spacing: -0.025em;">{{ metrics.total }}</div>
+        <div style="color: var(--text-secondary); font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Total Tickets</div>
+    </div>
+    <div class="card" style="padding: 1.25rem; text-align: center;">
+        <div style="font-size: 2rem; font-weight: 800; color: var(--accent); letter-spacing: -0.025em;">{{ metrics.open }}</div>
+        <div style="color: var(--text-secondary); font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Open</div>
+    </div>
+    <div class="card" style="padding: 1.25rem; text-align: center;">
+        <div style="font-size: 2rem; font-weight: 800; color: var(--warning); letter-spacing: -0.025em;">{{ metrics.in_progress }}</div>
+        <div style="color: var(--text-secondary); font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">In Progress</div>
+    </div>
+    <div class="card" style="padding: 1.25rem; text-align: center;">
+        <div style="font-size: 2rem; font-weight: 800; color: var(--success); letter-spacing: -0.025em;">{{ metrics.resolved }}</div>
+        <div style="color: var(--text-secondary); font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Resolved / Closed</div>
+    </div>
+</div>
+
+<!-- Support History Table -->
+<div class="card" style="padding: 0; overflow: hidden;">
+    <div style="padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border-color);">
+        <h3 style="font-size: 1.1rem; font-weight: 700; color: var(--text-primary); margin: 0;">Support Ticket History</h3>
+    </div>
+    <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+            <thead>
+                <tr style="background: rgba(99, 102, 241, 0.08); border-bottom: 1px solid var(--border-color);">
+                    <th style="padding: 0.85rem 1.25rem; text-align: left; font-weight: 700; color: var(--text-primary); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;">Ticket ID</th>
+                    <th style="padding: 0.85rem 1.25rem; text-align: left; font-weight: 700; color: var(--text-primary); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;">Subject</th>
+                    <th style="padding: 0.85rem 1.25rem; text-align: center; font-weight: 700; color: var(--text-primary); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;">Status</th>
+                    <th style="padding: 0.85rem 1.25rem; text-align: center; font-weight: 700; color: var(--text-primary); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;">Priority</th>
+                    <th style="padding: 0.85rem 1.25rem; text-align: center; font-weight: 700; color: var(--text-primary); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;">Opened</th>
+                    <th style="padding: 0.85rem 1.25rem; text-align: center; font-weight: 700; color: var(--text-primary); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ticket in tickets %}
+                    <tr style="border-bottom: 1px solid var(--border-color); transition: background 0.15s ease;" onmouseover="this.style.background='rgba(99, 102, 241, 0.04)'" onmouseout="this.style.background='transparent'">
+                        <td style="padding: 0.85rem 1.25rem;">
+                            <span style="font-weight: 700; color: var(--primary);">{{ ticket.ticket_id }}</span>
+                        </td>
+                        <td style="padding: 0.85rem 1.25rem; color: var(--text-primary);">{{ ticket.subject|default:"(No Subject)"|truncatewords:8 }}</td>
+                        <td style="padding: 0.85rem 1.25rem; text-align: center;">
+                            {% if ticket.status == 'Open' %}
+                                <span style="background: rgba(6, 182, 212, 0.15); border: 1px solid rgba(6, 182, 212, 0.3); color: var(--accent); font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 20px; font-weight: 700;">Open</span>
+                            {% elif ticket.status == 'In Progress' %}
+                                <span style="background: rgba(99, 102, 241, 0.15); border: 1px solid rgba(99, 102, 241, 0.3); color: var(--primary); font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 20px; font-weight: 700;">In Progress</span>
+                            {% elif ticket.status == 'On Hold' %}
+                                <span style="background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3); color: var(--warning); font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 20px; font-weight: 700;">On Hold</span>
+                            {% elif ticket.status == 'Resolved' %}
+                                <span style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); color: var(--success); font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 20px; font-weight: 700;">Resolved</span>
+                            {% else %}
+                                <span style="background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-color); color: var(--text-muted); font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 20px; font-weight: 700;">Closed</span>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 0.85rem 1.25rem; text-align: center;">
+                            {% if ticket.priority == 'High' %}
+                                <span style="color: var(--danger); font-weight: 700; font-size: 0.8rem;">High</span>
+                            {% elif ticket.priority == 'Medium' %}
+                                <span style="color: var(--warning); font-weight: 700; font-size: 0.8rem;">Medium</span>
+                            {% else %}
+                                <span style="color: var(--text-secondary); font-weight: 600; font-size: 0.8rem;">Low</span>
+                            {% endif %}
+                        </td>
+                        <td style="padding: 0.85rem 1.25rem; text-align: center; color: var(--text-muted); font-size: 0.8rem;">{{ ticket.created_at|date:"d M Y" }}</td>
+                        <td style="padding: 0.85rem 1.25rem; text-align: center;">
+                            <a href="/tickets/{{ ticket.ticket_id }}/" class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.75rem; border-radius: 6px;">
+                                <i data-feather="external-link" style="width: 12px; height: 12px;"></i> Open
+                            </a>
+                        </td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="6" style="padding: 3rem; text-align: center; color: var(--text-muted); font-size: 0.95rem;">
+                            <i data-feather="inbox" style="width: 32px; height: 32px; margin-bottom: 0.75rem; display: block; margin-left: auto; margin-right: auto;"></i>
+                            No support tickets linked to this customer yet.
+                        </td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+<!-- Audit Footer -->
+<div style="margin-top: 1.5rem; text-align: right; color: var(--text-muted); font-size: 0.8rem;">
+    Registered: {{ customer.created_at|date:"d M Y H:i" }} &bull; Last Updated: {{ customer.updated_at|date:"d M Y H:i" }}
+</div>
+{% endblock %}

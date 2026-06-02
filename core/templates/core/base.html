@@ -35,8 +35,13 @@
                         </a>
                     </li>
                     <li class="nav-item">
-                        <a href="/tickets/create/" class="nav-link {% if 'create' in request.path %}active{% endif %}" id="nav-create-ticket">
+                        <a href="/tickets/create/" class="nav-link {% if 'tickets/create' in request.path %}active{% endif %}" id="nav-create-ticket">
                             <i data-feather="plus-circle" style="width: 16px; height: 16px;"></i> Open Ticket
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="/customers/" class="nav-link {% if 'customers' in request.path %}active{% endif %}" id="nav-customers">
+                            <i data-feather="briefcase" style="width: 16px; height: 16px;"></i> Customers
                         </a>
                     </li>
                     {% if user.role == 'Admin' %}

@@ -21,6 +21,19 @@ class TicketCategory(models.Model):
     def __str__(self):
         return self.name
 
+class Customer(models.Model):
+    contact_name = models.CharField(max_length=100)
+    email = models.EmailField(unique=True)
+    phone = models.CharField(max_length=15)
+    address = models.TextField(blank=True, null=True)
+    location = models.CharField(max_length=500, blank=True, null=True, help_text="Google Maps link or location address")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return self.contact_name
+
+
 class Ticket(models.Model):
     STATUS = [
         ('Open','Open'),
@@ -36,6 +49,7 @@ class Ticket(models.Model):
         ('Low','Low'),
     ]
     ticket_id = models.CharField(max_length=20)
+    customer = models.ForeignKey(Customer, on_delete=models.SET_NULL, null=True, blank=True, related_name='tickets')
     subject = models.CharField(max_length=200, null=True, blank=True)
     description = models.TextField()
     category = models.ForeignKey(TicketCategory, on_delete=models.CASCADE)
