@@ -4,8 +4,15 @@ import uuid
 
 from core.models import AssistantConversation, AssistantMessage
 from core.assistant.prompts import build_system_prompt
-from core.assistant.tools import _normalize_phone, _resolve_customer
+from core.customer_lookup import customers_for_contact, primary_customer
+from core.phone_utils import normalize_kenya_phone
 from core.text_utils import strip_non_bmp
+
+
+def _normalize_phone(phone):
+    if not phone:
+        return ''
+    return normalize_kenya_phone(phone) or ''
 
 
 def get_or_create_web_conversation(request):
@@ -32,7 +39,8 @@ def get_or_create_whatsapp_conversation(phone, profile_name=''):
         conv.save(update_fields=['whatsapp_phone', 'updated_at'])
 
     if not conv.customer_id:
-        customer = _resolve_customer(phone=digits)
+        customers = customers_for_contact(phone=digits)
+        customer = primary_customer(customers)
         if customer:
             conv.customer = customer
             conv.save(update_fields=['customer', 'updated_at'])
@@ -120,14 +128,7 @@ def clear_conversation_category_ids(conversation):
 
 
 def link_conversation_customer(conversation, customer_id=None, phone=None):
-    customer = None
-    from django.contrib.auth import get_user_model
-    User = get_user_model()
-    if customer_id:
-        customer = User.objects.filter(pk=customer_id, role='Customer').first()
-    elif phone:
-        customer = _resolve_customer(phone=phone)
-    if customer:
-        conversation.customer = customer
-        conversation.save(update_fields=['customer', 'updated_at'])
-    return customer
+    from core.customer_lookup import link_conversation_to_best_customer
+    return link_conversation_to_best_customer(
+        conversation, phone=phone, customer_id=customer_id,
+    )

@@ -1,7 +1,11 @@
 """Sidebar payload for the web assistant (tickets + current selection)."""
 
-
-
+from core.customer_lookup import (
+    customers_for_contact,
+    link_conversation_to_best_customer,
+    primary_customer,
+    tickets_for_contact,
+)
 from core.models import Ticket
 from core.ticket_urls import ticket_detail_url
 
@@ -39,54 +43,32 @@ def serialize_ticket(ticket, highlight=False, request=None):
 
 def build_sidebar_payload(conversation, current_ticket_id=None, request=None):
 
-    customer = conversation.customer if getattr(conversation, 'customer_id', None) else None
+    link_conversation_to_best_customer(conversation)
+    customers = customers_for_contact(conversation=conversation)
+    customer = primary_customer(customers, conversation)
 
     tickets = []
-
     current_ticket = None
 
-
-
-    if customer:
-
-        qs = (
-
-            Ticket.objects.filter(customer=customer)
-
-            .prefetch_related('categories')
-
-            .order_by('-created_at')[:20]
-
-        )
-
-        ticket_rows = list(qs)
+    if customers.exists():
+        _, ticket_qs = tickets_for_contact(conversation=conversation, limit=20)
+        ticket_rows = list(ticket_qs)
 
         if current_ticket_id:
-
             for t in ticket_rows:
-
                 if t.ticket_id == current_ticket_id:
-
                     current_ticket = t
-
                     break
-
         if not current_ticket and ticket_rows:
-
             current_ticket = ticket_rows[0]
-
             current_ticket_id = current_ticket.ticket_id
 
-
-
         for t in ticket_rows:
-
             entry = serialize_ticket(
                 t,
                 highlight=current_ticket_id and t.ticket_id == current_ticket_id,
                 request=request,
             )
-
             tickets.append(entry)
 
 

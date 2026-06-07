@@ -13,5 +13,7 @@ def format_assistant_reply(text):
     cleaned = re.sub(r'(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)', r'\1', cleaned)
     cleaned = re.sub(r'^#{1,6}\s+', '', cleaned, flags=re.MULTILINE)
     cleaned = re.sub(r'^[-*]\s+', '• ', cleaned, flags=re.MULTILINE)
+    cleaned = re.sub(r'\[([^\]]+)\]\((https?://[^)]+)\)', r'\2', cleaned)
+    cleaned = re.sub(r'\[([^\]]+)\]\((/[^)]+)\)', r'\2', cleaned)
     cleaned = re.sub(r'\n{3,}', '\n\n', cleaned)
     return cleaned.strip()

@@ -26,7 +26,8 @@ def build_system_prompt(channel, customer=None):
 
             f'phone {customer.phone}, id {customer.id}. '
 
-            f'When listing their tickets, call get_customer_tickets with customer_id={customer.id}.'
+            f'When listing their tickets, call get_customer_tickets with customer_id={customer.id} '
+            f'AND phone={customer.phone}. Never say they have zero tickets without calling get_customer_tickets.'
 
         )
 
@@ -56,7 +57,7 @@ def build_system_prompt(channel, customer=None):
 
 - create_support_ticket — when the customer reports a problem or wants support; call this without asking permission to create a ticket. Pass description, priority, and all applicable category_names. The backend blocks duplicate open tickets for the same complaint automatically.
 
-- get_customer_tickets — when they ask about their open/past tickets (use phone or customer_id).
+- get_customer_tickets — when they ask about their open/past tickets. Always pass phone when the user gave a number, even if customer_id is known. The backend merges duplicate customer records for the same phone (07… vs 254…).
 
 - lookup_ticket — when they provide a ticket ID (e.g. TKT-XXXXXXXX).
 

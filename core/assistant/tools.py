@@ -13,6 +13,14 @@ from core.ticket_matching import duplicate_ticket_response, find_matching_open_t
 from core.ticket_urls import ticket_detail_url
 from core.customer_accounts import create_customer_user
 from core.models import Ticket, TicketCategory
+from core.customer_lookup import (
+    customer_matches_phone,
+    customers_for_contact,
+    link_conversation_to_best_customer,
+    primary_customer,
+    tickets_for_contact,
+)
+
 from core.phone_utils import digits_only, normalize_kenya_phone, phone_match_key
 
 User = get_user_model()
@@ -34,20 +42,15 @@ def _customer_email_fallback(phone, email=''):
     return f'wa_{digits}@customers.metrolinkssolutionltd.local'
 
 
-def _resolve_customer(customer_id=None, phone=None):
-    if customer_id:
-        return User.objects.filter(pk=customer_id, role='Customer').first()
-    matches = _customers_for_phone(phone)
-    return matches.first()
+def _resolve_customer(customer_id=None, phone=None, conversation=None):
+    customers = customers_for_contact(
+        phone=phone, customer_id=customer_id, conversation=conversation,
+    )
+    return primary_customer(customers, conversation)
 
 
 def _customers_for_phone(phone):
-    key = phone_match_key(phone)
-    if not key:
-        return User.objects.none()
-    return User.objects.filter(role='Customer').filter(
-        Q(phone__icontains=key)
-    ).order_by('id')
+    return customers_for_contact(phone=phone)
 
 
 def _customer_payload(user):
@@ -226,30 +229,22 @@ def tool_list_ticket_categories(**_kwargs):
 
 
 def tool_get_customer_tickets(customer_id=None, phone=None, conversation=None, request=None, **_kwargs):
-    customers = User.objects.none()
-    if customer_id:
-        customers = User.objects.filter(pk=customer_id, role='Customer')
-    elif phone:
-        customers = _customers_for_phone(phone)
-    if not customers.exists() and conversation:
-        if conversation.customer_id:
-            customers = User.objects.filter(pk=conversation.customer_id, role='Customer')
-        elif conversation.whatsapp_phone:
-            customers = _customers_for_phone(conversation.whatsapp_phone)
+    customers, tickets = tickets_for_contact(
+        phone=phone,
+        customer_id=customer_id,
+        conversation=conversation,
+    )
     if not customers.exists():
         return {'error': 'Customer not found.', 'tickets': []}
 
-    primary = None
-    if conversation and conversation.customer_id:
-        primary = customers.filter(pk=conversation.customer_id).first()
-    if not primary:
-        primary = customers.first()
+    primary = link_conversation_to_best_customer(
+        conversation, phone=phone, customer_id=customer_id,
+    ) or primary_customer(customers, conversation)
 
-    tickets = Ticket.objects.filter(customer__in=customers).prefetch_related(
-        'categories',
-    ).order_by('-created_at')[:15]
+    ticket_rows = list(tickets)
     return {
         'customer': _customer_payload(primary),
+        'customers_matched': customers.count(),
         'tickets': [
             {
                 'ticket_id': t.ticket_id,
@@ -259,13 +254,15 @@ def tool_get_customer_tickets(customer_id=None, phone=None, conversation=None, r
                 'categories': t.categories_display,
                 'description': t.description[:200],
                 'created_at': t.created_at.isoformat(),
+                'customer_id': t.customer_id,
             }
-            for t in tickets
+            for t in ticket_rows
         ],
+        'count': len(ticket_rows),
     }
 
 
-def tool_lookup_ticket(ticket_id='', request=None, **_kwargs):
+def tool_lookup_ticket(ticket_id='', request=None, conversation=None, phone=None, **_kwargs):
     tid = (ticket_id or '').strip().upper()
     ticket = Ticket.objects.filter(ticket_id__iexact=tid).select_related(
         'customer',
@@ -273,6 +270,15 @@ def tool_lookup_ticket(ticket_id='', request=None, **_kwargs):
     if not ticket:
         return {'error': f'Ticket {tid} not found.'}
     url = ticket_detail_url(ticket.ticket_id, request=request, for_customer=True)
+    owner = ticket.customer
+    owner_payload = _customer_payload(owner) if owner else None
+    belongs_to_query_phone = customer_matches_phone(owner, phone) if phone and owner else None
+    if owner and conversation:
+        link_conversation_to_best_customer(
+            conversation,
+            phone=owner.phone,
+            customer_id=owner.id,
+        )
     return {
         'ticket_id': ticket.ticket_id,
         'detail_url': url,
@@ -280,7 +286,11 @@ def tool_lookup_ticket(ticket_id='', request=None, **_kwargs):
         'priority': ticket.priority,
         'categories': ticket.categories_display,
         'description': ticket.description,
-        'customer': ticket.customer.display_name if ticket.customer else None,
+        'customer': owner.display_name if owner else None,
+        'customer_id': owner.id if owner else None,
+        'customer_phone': owner.phone if owner else None,
+        'owner': owner_payload,
+        'belongs_to_query_phone': belongs_to_query_phone,
         'created_at': ticket.created_at.isoformat(),
     }
 
@@ -290,8 +300,9 @@ def tool_create_or_get_customer(contact_name='', phone='', email='', address='',
     if not contact_name or not phone:
         return {'error': 'contact_name and phone are required.'}
 
-    existing = _resolve_customer(phone=phone)
-    if existing:
+    matches = list(customers_for_contact(phone=phone, conversation=conversation))
+    if matches:
+        existing = matches[0]
         if conversation:
             conversation.customer = existing
             conversation.save(update_fields=['customer', 'updated_at'])
@@ -364,7 +375,9 @@ def tool_create_support_ticket(
             ),
         }
 
-    customer = _resolve_customer(customer_id=customer_id, phone=phone)
+    customer = _resolve_customer(
+        customer_id=customer_id, phone=phone, conversation=conversation,
+    )
     if not customer and contact_name and phone:
         result = tool_create_or_get_customer(
             contact_name=contact_name,
