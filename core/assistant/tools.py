@@ -234,16 +234,24 @@ def tool_get_customer_tickets(customer_id=None, phone=None, conversation=None, r
         customer_id=customer_id,
         conversation=conversation,
     )
-    if not customers.exists():
-        return {'error': 'Customer not found.', 'tickets': []}
+    if not customers.exists() and not tickets.exists():
+        return {'error': 'Customer not found.', 'tickets': [], 'count': 0}
 
-    primary = link_conversation_to_best_customer(
+    link_conversation_to_best_customer(
         conversation, phone=phone, customer_id=customer_id,
-    ) or customers.first()
+    )
+    customers, tickets = tickets_for_contact(
+        phone=phone,
+        customer_id=customer_id,
+        conversation=conversation,
+    )
+    primary = customers.first()
+    if not primary and tickets.exists() and tickets.first().customer_id:
+        primary = tickets.first().customer
 
     ticket_rows = list(tickets)
     return {
-        'customer': _customer_payload(primary),
+        'customer': _customer_payload(primary) if primary else None,
         'customers_matched': customers.count(),
         'tickets': [
             {

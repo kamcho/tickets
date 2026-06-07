@@ -20,6 +20,10 @@ TICKET_INVENTORY_PHRASES = (
     'show my ticket',
     'ticket status',
     'have a ticket',
+    'tickets are open',
+    'tickets are pened',
+    'tickets opened',
+    'opened for me',
 )
 
 
@@ -74,7 +78,16 @@ def assistant_recently_asked_for_phone(conversation):
     if not row:
         return False
     lowered = (row.content or '').lower()
-    return 'phone number' in lowered or 'provide your phone' in lowered
+    return any(
+        phrase in lowered
+        for phrase in (
+            'phone number',
+            'provide your phone',
+            'your phone',
+            'phone so i can',
+            'share your phone',
+        )
+    )
 
 
 def _first_ticket_id(result):
@@ -115,15 +128,22 @@ def try_direct_reply(conversation, user_text, request=None):
         )
     )
 
-    if should_list_tickets:
+    if phone:
         result = tool_get_customer_tickets(
             phone=phone,
             conversation=conversation,
             request=request,
         )
-        reply = compose_fallback_reply([('get_customer_tickets', result)], request=request)
-        if reply:
-            return reply, _first_ticket_id(result)
+        if not result.get('error'):
+            reply = compose_fallback_reply([('get_customer_tickets', result)], request=request)
+            if reply:
+                return reply, _first_ticket_id(result)
+        elif result.get('error') == 'Customer not found.':
+            return (
+                'I could not find a customer account for that phone number. '
+                'Please double-check the number or contact Metrolinks support.',
+                None,
+            )
 
     if is_ticket_inventory_question(user_text) and conversation.customer_id:
         result = tool_get_customer_tickets(
