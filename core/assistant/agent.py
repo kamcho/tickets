@@ -5,12 +5,14 @@ OpenAI infers intent and selects tools; Django executes them and emits progress 
 """
 import json
 import logging
+import time
 
 import httpx
 from django.conf import settings
 
 from core.assistant.tools import TOOL_SCHEMAS, execute_tool
 from core.assistant.conversation import append_message, build_openai_messages
+from core.assistant.fallback import compose_fallback_reply
 from core.assistant.formatting import format_assistant_reply
 from core.assistant.progress import (
     STEP_COMPOSE,
@@ -38,15 +40,15 @@ SIDEBAR_REFRESH_TOOLS = frozenset({
 })
 
 
-def _sidebar_snapshot(conversation, channel, current_ticket_id=None):
+def _sidebar_snapshot(conversation, channel, current_ticket_id=None, request=None):
     if channel != 'web':
         return None
-    payload = sidebar_event(conversation, current_ticket_id=current_ticket_id)
+    payload = sidebar_event(conversation, current_ticket_id=current_ticket_id, request=request)
     return {k: v for k, v in payload.items() if k != 'event'}
 
 
-def _finish_turn(conversation, reply, channel, current_ticket_id=None):
-    sidebar = _sidebar_snapshot(conversation, channel, current_ticket_id)
+def _finish_turn(conversation, reply, channel, current_ticket_id=None, request=None):
+    sidebar = _sidebar_snapshot(conversation, channel, current_ticket_id, request=request)
     return done_event(reply, sidebar=sidebar)
 
 
@@ -54,7 +56,7 @@ def _openai_configured():
     return bool(getattr(settings, 'OPENAI_API_KEY', ''))
 
 
-def _call_openai(messages):
+def _call_openai(messages, max_retries=3):
     api_key = settings.OPENAI_API_KEY
     model = getattr(settings, 'OPENAI_MODEL', 'gpt-4o-mini')
     base_url = getattr(settings, 'OPENAI_BASE_URL', 'https://api.openai.com/v1').rstrip('/')
@@ -67,17 +69,45 @@ def _call_openai(messages):
         'parallel_tool_calls': True,
         'temperature': 0.3,
     }
-    with httpx.Client(timeout=60.0) as client:
-        response = client.post(
-            f'{base_url}/chat/completions',
-            headers={
-                'Authorization': f'Bearer {api_key}',
-                'Content-Type': 'application/json',
-            },
-            json=payload,
-        )
-        response.raise_for_status()
-        return response.json()
+    last_error = None
+    for attempt in range(max_retries):
+        try:
+            with httpx.Client(timeout=90.0) as client:
+                response = client.post(
+                    f'{base_url}/chat/completions',
+                    headers={
+                        'Authorization': f'Bearer {api_key}',
+                        'Content-Type': 'application/json',
+                    },
+                    json=payload,
+                )
+                response.raise_for_status()
+                return response.json()
+        except httpx.HTTPStatusError as exc:
+            last_error = exc
+            status = exc.response.status_code
+            body = (exc.response.text or '')[:500]
+            logger.warning(
+                'OpenAI HTTP %s (attempt %s/%s): %s',
+                status, attempt + 1, max_retries, body,
+            )
+            if status in (429, 502, 503, 504) and attempt < max_retries - 1:
+                time.sleep(2 ** attempt)
+                continue
+            raise
+        except (httpx.TimeoutException, httpx.ConnectError) as exc:
+            last_error = exc
+            logger.warning(
+                'OpenAI connection error (attempt %s/%s): %s',
+                attempt + 1, max_retries, exc,
+            )
+            if attempt < max_retries - 1:
+                time.sleep(2 ** attempt)
+                continue
+            raise
+    if last_error:
+        raise last_error
+    raise RuntimeError('OpenAI call failed with no response')
 
 
 def _extract_assistant_message(choice_message):
@@ -106,7 +136,7 @@ def _effective_category_ids(conversation, selected_category_ids):
     return list(conversation.selected_category_ids or [])
 
 
-def iter_assistant_turn(conversation, user_text, channel='web', selected_category_ids=None):
+def iter_assistant_turn(conversation, user_text, channel='web', selected_category_ids=None, request=None):
     """
     Process one user message; yields progress events, then done_event(reply).
     """
@@ -115,7 +145,7 @@ def iter_assistant_turn(conversation, user_text, channel='web', selected_categor
 
     if not user_text:
         reply = _finalize_reply('Please send a message so I can help you.')
-        yield _finish_turn(conversation, reply, channel, active_ticket_id)
+        yield _finish_turn(conversation, reply, channel, active_ticket_id, request=request)
         return
 
     category_ids = _effective_category_ids(conversation, selected_category_ids)
@@ -144,11 +174,12 @@ def iter_assistant_turn(conversation, user_text, channel='web', selected_categor
         )
         yield progress_event(STEP_THINKING[0], STEP_THINKING[1], 'error')
         _persist_and_return(conversation, reply)
-        yield _finish_turn(conversation, reply, channel, active_ticket_id)
+        yield _finish_turn(conversation, reply, channel, active_ticket_id, request=request)
         return
 
     messages = build_openai_messages(conversation, channel)
     think_id, think_label = STEP_THINKING
+    round_tool_results = []
 
     for _round in range(MAX_TOOL_ROUNDS):
         yield progress_event(think_id, think_label, 'active')
@@ -158,12 +189,17 @@ def iter_assistant_turn(conversation, user_text, channel='web', selected_categor
         except httpx.HTTPError:
             logger.exception('OpenAI API error')
             yield progress_event(think_id, think_label, 'error')
+            fallback = compose_fallback_reply(round_tool_results, request=request)
+            if fallback:
+                reply = _persist_and_return(conversation, fallback)
+                yield _finish_turn(conversation, reply, channel, active_ticket_id, request=request)
+                return
             reply = (
                 'Sorry, I had trouble reaching the AI service. Please try again in a moment '
                 'or contact Metrolinks support directly.'
             )
             _persist_and_return(conversation, reply)
-            yield _finish_turn(conversation, reply, channel, active_ticket_id)
+            yield _finish_turn(conversation, reply, channel, active_ticket_id, request=request)
             return
 
         yield progress_event(think_id, think_label, 'done')
@@ -180,7 +216,7 @@ def iter_assistant_turn(conversation, user_text, channel='web', selected_categor
             )
             reply = _persist_and_return(conversation, reply)
             yield progress_event(compose_id, compose_label, 'done')
-            yield _finish_turn(conversation, reply, channel, active_ticket_id)
+            yield _finish_turn(conversation, reply, channel, active_ticket_id, request=request)
             return
 
         messages.append(assistant_msg)
@@ -204,6 +240,8 @@ def iter_assistant_turn(conversation, user_text, channel='web', selected_categor
             label = tool_step_label(tc['name'])
             yield progress_event(tc['name'], label, 'pending')
 
+        round_tool_results = []
+
         for tc in parsed_calls:
             label = tool_step_label(tc['name'])
             yield progress_event(tc['name'], label, 'active')
@@ -213,7 +251,9 @@ def iter_assistant_turn(conversation, user_text, channel='web', selected_categor
                 conversation=conversation,
                 channel=channel,
                 selected_category_ids=category_ids,
+                request=request,
             )
+            round_tool_results.append((tc['name'], result))
             result_json = json.dumps(result)
             append_message(
                 conversation,
@@ -234,7 +274,7 @@ def iter_assistant_turn(conversation, user_text, channel='web', selected_categor
             if tid:
                 active_ticket_id = tid
             if channel == 'web' and tc['name'] in SIDEBAR_REFRESH_TOOLS:
-                snap = _sidebar_snapshot(conversation, channel, active_ticket_id)
+                snap = _sidebar_snapshot(conversation, channel, active_ticket_id, request=request)
                 if snap:
                     yield {'event': 'sidebar', **snap}
 
@@ -246,14 +286,15 @@ def iter_assistant_turn(conversation, user_text, channel='web', selected_categor
     )
     _persist_and_return(conversation, reply)
     yield progress_event(compose_id, compose_label, 'done')
-    yield _finish_turn(conversation, reply, channel, active_ticket_id)
+    yield _finish_turn(conversation, reply, channel, active_ticket_id, request=request)
 
 
-def run_assistant_turn(conversation, user_text, channel='web', selected_category_ids=None):
+def run_assistant_turn(conversation, user_text, channel='web', selected_category_ids=None, request=None):
     """Non-streaming wrapper (WhatsApp and legacy callers)."""
     reply = ''
     for event in iter_assistant_turn(
-        conversation, user_text, channel=channel, selected_category_ids=selected_category_ids,
+        conversation, user_text, channel=channel,
+        selected_category_ids=selected_category_ids, request=request,
     ):
         if event.get('event') == 'done':
             reply = event.get('reply', '')

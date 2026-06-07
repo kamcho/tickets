@@ -57,7 +57,9 @@ if not TICKETS_PORTAL_LOGIN_URL and not DEBUG:
     TICKETS_PORTAL_LOGIN_URL = 'https://tickets.metrolinkssolutionltd.co.ke/portal/login/'
 
 # Base URL for ticket links in SMS when no HTTP request (e.g. webhooks). Unset = current host in views, production default when DEBUG=False.
-SITE_BASE_URL = os.getenv('SITE_BASE_URL', '').strip()
+SITE_BASE_URL = os.getenv('SITE_BASE_URL', '').strip().rstrip('/')
+if SITE_BASE_URL.endswith(':800') or SITE_BASE_URL.endswith(':800/'):
+    SITE_BASE_URL = ''  # common typo — fall back to production default
 if not SITE_BASE_URL and not DEBUG:
     SITE_BASE_URL = 'https://tickets.metrolinkssolutionltd.co.ke'
 
@@ -71,6 +73,7 @@ OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '').strip()
 OPENAI_MODEL = os.getenv('OPENAI_MODEL', 'gpt-4o-mini').strip()
 OPENAI_BASE_URL = os.getenv('OPENAI_BASE_URL', 'https://api.openai.com/v1').strip()
 ASSISTANT_MAX_HISTORY = int(os.getenv('ASSISTANT_MAX_HISTORY', '24'))
+ASSISTANT_MAX_HISTORY_TURNS = int(os.getenv('ASSISTANT_MAX_HISTORY_TURNS', '8'))
 
 # WhatsApp Cloud API (Meta Business)
 WHATSAPP_ACCESS_TOKEN = os.getenv('WHATSAPP_ACCESS_TOKEN', '').strip()

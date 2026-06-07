@@ -55,14 +55,29 @@ def append_message(conversation, role, content='', tool_name='', tool_call_id=''
 
 
 def build_openai_messages(conversation, channel):
-    """Build message list for the LLM from stored history (last N turns)."""
+    """Build message list for the LLM from stored history (last N user turns)."""
     from django.conf import settings
 
-    max_messages = getattr(settings, 'ASSISTANT_MAX_HISTORY', 24)
-    rows = list(
-        conversation.messages.order_by('-created_at')[:max_messages]
-    )
-    rows.reverse()
+    max_turns = getattr(settings, 'ASSISTANT_MAX_HISTORY_TURNS', 8)
+    all_rows = list(conversation.messages.order_by('created_at'))
+
+    turns = []
+    buf = []
+    for row in all_rows:
+        if row.role == AssistantMessage.ROLE_USER:
+            if buf:
+                turns.append(buf)
+            buf = [row]
+        else:
+            if buf:
+                buf.append(row)
+            else:
+                # Orphan assistant/tool rows before any user message — skip.
+                continue
+    if buf:
+        turns.append(buf)
+
+    rows = [row for turn in turns[-max_turns:] for row in turn]
 
     customer = conversation.customer if conversation.customer_id else None
     messages = [{'role': 'system', 'content': build_system_prompt(channel, customer=customer)}]

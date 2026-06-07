@@ -225,7 +225,7 @@ def tool_list_ticket_categories(**_kwargs):
     return {'categories': cats}
 
 
-def tool_get_customer_tickets(customer_id=None, phone=None, conversation=None, **_kwargs):
+def tool_get_customer_tickets(customer_id=None, phone=None, conversation=None, request=None, **_kwargs):
     customers = User.objects.none()
     if customer_id:
         customers = User.objects.filter(pk=customer_id, role='Customer')
@@ -253,6 +253,7 @@ def tool_get_customer_tickets(customer_id=None, phone=None, conversation=None, *
         'tickets': [
             {
                 'ticket_id': t.ticket_id,
+                'detail_url': ticket_detail_url(t.ticket_id, request=request, for_customer=True),
                 'status': t.status,
                 'priority': t.priority,
                 'categories': t.categories_display,
@@ -264,14 +265,14 @@ def tool_get_customer_tickets(customer_id=None, phone=None, conversation=None, *
     }
 
 
-def tool_lookup_ticket(ticket_id='', **_kwargs):
+def tool_lookup_ticket(ticket_id='', request=None, **_kwargs):
     tid = (ticket_id or '').strip().upper()
     ticket = Ticket.objects.filter(ticket_id__iexact=tid).select_related(
         'customer',
     ).prefetch_related('categories').first()
     if not ticket:
         return {'error': f'Ticket {tid} not found.'}
-    url = ticket_detail_url(ticket.ticket_id, for_customer=True)
+    url = ticket_detail_url(ticket.ticket_id, request=request, for_customer=True)
     return {
         'ticket_id': ticket.ticket_id,
         'detail_url': url,
@@ -335,6 +336,7 @@ def tool_create_support_ticket(
     conversation=None,
     channel='web',
     selected_category_ids=None,
+    request=None,
     **_kwargs,
 ):
     if not description:
@@ -407,7 +409,7 @@ def tool_create_support_ticket(
         clear_conversation_category_ids(conversation)
 
     cat_label = _categories_label(categories)
-    url = ticket_detail_url(ticket.ticket_id, for_customer=True)
+    url = ticket_detail_url(ticket.ticket_id, request=request, for_customer=True)
     return {
         'success': True,
         'ticket_id': ticket.ticket_id,
@@ -436,7 +438,7 @@ TOOL_HANDLERS = {
 }
 
 
-def execute_tool(name, arguments, conversation=None, channel='web', selected_category_ids=None):
+def execute_tool(name, arguments, conversation=None, channel='web', selected_category_ids=None, request=None):
     """Run a tool and return a JSON-serializable dict."""
     handler = TOOL_HANDLERS.get(name)
     if not handler:
@@ -451,6 +453,7 @@ def execute_tool(name, arguments, conversation=None, channel='web', selected_cat
             conversation=conversation,
             channel=channel,
             selected_category_ids=selected_category_ids,
+            request=request,
         )
         return result
     except Exception as exc:

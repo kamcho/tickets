@@ -9,7 +9,7 @@ from core.ticket_urls import ticket_detail_url
 
 
 
-def serialize_ticket(ticket, highlight=False):
+def serialize_ticket(ticket, highlight=False, request=None):
 
     return {
 
@@ -27,7 +27,7 @@ def serialize_ticket(ticket, highlight=False):
 
         'created_at': ticket.created_at.isoformat(),
 
-        'detail_url': ticket_detail_url(ticket.ticket_id, for_customer=True),
+        'detail_url': ticket_detail_url(ticket.ticket_id, request=request, for_customer=True),
 
         'highlight': highlight,
 
@@ -37,7 +37,7 @@ def serialize_ticket(ticket, highlight=False):
 
 
 
-def build_sidebar_payload(conversation, current_ticket_id=None):
+def build_sidebar_payload(conversation, current_ticket_id=None, request=None):
 
     customer = conversation.customer if getattr(conversation, 'customer_id', None) else None
 
@@ -82,11 +82,9 @@ def build_sidebar_payload(conversation, current_ticket_id=None):
         for t in ticket_rows:
 
             entry = serialize_ticket(
-
                 t,
-
                 highlight=current_ticket_id and t.ticket_id == current_ticket_id,
-
+                request=request,
             )
 
             tickets.append(entry)
@@ -119,7 +117,7 @@ def build_sidebar_payload(conversation, current_ticket_id=None):
 
         'current_ticket': (
 
-            serialize_ticket(current_ticket, highlight=True) if current_ticket else None
+            serialize_ticket(current_ticket, highlight=True, request=request) if current_ticket else None
 
         ),
 
@@ -129,9 +127,10 @@ def build_sidebar_payload(conversation, current_ticket_id=None):
 
 
 
-def sidebar_event(conversation, current_ticket_id=None):
-
-    payload = build_sidebar_payload(conversation, current_ticket_id=current_ticket_id)
+def sidebar_event(conversation, current_ticket_id=None, request=None):
+    payload = build_sidebar_payload(
+        conversation, current_ticket_id=current_ticket_id, request=request,
+    )
 
     return {'event': 'sidebar', **payload}
 

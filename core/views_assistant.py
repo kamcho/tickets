@@ -121,7 +121,7 @@ def assistant_page(request):
 
     ]
 
-    sidebar = build_sidebar_payload(conv)
+    sidebar = build_sidebar_payload(conv, request=request)
     portal_tickets_base = request.build_absolute_uri(reverse('portal_ticket_list'))
 
     return render(request, 'core/assistant.html', {
@@ -180,6 +180,7 @@ def assistant_chat_api(request):
 
     reply = run_assistant_turn(
         conv, message, channel='web', selected_category_ids=category_ids or None,
+        request=request,
     )
 
     return JsonResponse({'reply': reply})
@@ -213,6 +214,7 @@ def assistant_chat_stream_api(request):
                 message,
                 channel='web',
                 selected_category_ids=category_ids or None,
+                request=request,
             ):
 
                 yield json.dumps(event) + '\n'

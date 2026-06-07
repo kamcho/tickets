@@ -1,16 +1,29 @@
 """Absolute URLs for ticket detail pages (SMS, flash messages, assistant)."""
 
+import re
+
 from django.conf import settings
 from django.urls import reverse
 from django.utils.html import format_html
+
+_BAD_PORT_RE = re.compile(r':800/?$')  # typo :800 instead of :8000
+
+
+def _is_usable_site_base(base):
+    base = (base or '').strip().rstrip('/')
+    if not base or not base.startswith(('http://', 'https://')):
+        return False
+    if _BAD_PORT_RE.search(base):
+        return False
+    return True
 
 
 def site_base_url(request=None):
     if request is not None:
         return request.build_absolute_uri('/').rstrip('/')
-    base = getattr(settings, 'SITE_BASE_URL', '').strip()
-    if base:
-        return base.rstrip('/')
+    base = getattr(settings, 'SITE_BASE_URL', '').strip().rstrip('/')
+    if base and _is_usable_site_base(base):
+        return base
     if not getattr(settings, 'DEBUG', True):
         return 'https://tickets.metrolinkssolutionltd.co.ke'
     return 'http://127.0.0.1:8000'
