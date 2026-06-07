@@ -27,9 +27,26 @@ def customers_queryset_for_phone_keys(keys):
     phone_q = Q()
     for key in keys:
         phone_q |= Q(phone__icontains=key)
-    return (
+    qs = (
         User.objects.filter(role='Customer')
         .filter(phone_q)
+        .annotate(ticket_count=Count('customer_tickets'))
+        .order_by('-ticket_count', 'id')
+    )
+    if qs.exists():
+        return qs
+    # Fallback when phone is stored with spaces/formatting icontains cannot match.
+    matched = []
+    for user in User.objects.filter(role='Customer').annotate(
+        ticket_count=Count('customer_tickets'),
+    ):
+        user_key = phone_match_key(user.phone)
+        if user_key and user_key in keys:
+            matched.append(user.pk)
+    if not matched:
+        return User.objects.none()
+    return (
+        User.objects.filter(pk__in=matched, role='Customer')
         .annotate(ticket_count=Count('customer_tickets'))
         .order_by('-ticket_count', 'id')
     )
@@ -102,7 +119,7 @@ def link_conversation_to_best_customer(conversation, *, phone=None, customer_id=
     customers = customers_for_contact(
         phone=phone, customer_id=customer_id, conversation=conversation,
     )
-    customer = primary_customer(customers, conversation)
+    customer = customers.first()
     if customer and conversation.customer_id != customer.id:
         conversation.customer = customer
         conversation.save(update_fields=['customer', 'updated_at'])

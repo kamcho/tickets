@@ -73,6 +73,13 @@ class MyUser(AbstractUser):
     def is_customer(self):
         return self.role == 'Customer'
 
+    def save(self, *args, **kwargs):
+        if self.phone:
+            normalized = normalize_kenya_phone(self.phone)
+            if normalized:
+                self.phone = normalized
+        super().save(*args, **kwargs)
+
 
 class TicketCategory(models.Model):
     name = models.CharField(max_length=100)

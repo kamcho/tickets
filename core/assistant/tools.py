@@ -239,7 +239,7 @@ def tool_get_customer_tickets(customer_id=None, phone=None, conversation=None, r
 
     primary = link_conversation_to_best_customer(
         conversation, phone=phone, customer_id=customer_id,
-    ) or primary_customer(customers, conversation)
+    ) or customers.first()
 
     ticket_rows = list(tickets)
     return {

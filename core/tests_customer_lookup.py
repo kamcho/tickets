@@ -22,6 +22,8 @@ class PhoneTicketLookupTests(TestCase):
         )
         staff.set_password('0728507155')
         staff.save()
+        User.objects.filter(pk=staff.pk).update(phone='0728507155')
+        staff.refresh_from_db()
 
         assistant = User(
             email='wa_254728507155@customers.metrolinkssolutionltd.local',

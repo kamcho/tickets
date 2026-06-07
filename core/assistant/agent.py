@@ -12,6 +12,7 @@ from django.conf import settings
 
 from core.assistant.tools import TOOL_SCHEMAS, execute_tool
 from core.assistant.conversation import append_message, build_openai_messages
+from core.assistant.direct import try_direct_reply
 from core.assistant.fallback import compose_fallback_reply
 from core.assistant.formatting import format_assistant_reply
 from core.assistant.progress import (
@@ -165,6 +166,20 @@ def iter_assistant_turn(conversation, user_text, channel='web', selected_categor
 
     append_message(conversation, 'user', user_text)
     conversation.save(update_fields=['updated_at'])
+
+    direct_reply, active_ticket_id = try_direct_reply(
+        conversation, user_text, request=request,
+    )
+    if direct_reply:
+        think_id, think_label = STEP_THINKING
+        yield progress_event(think_id, think_label, 'active')
+        yield progress_event(think_id, think_label, 'done')
+        compose_id, compose_label = STEP_COMPOSE
+        yield progress_event(compose_id, compose_label, 'active')
+        reply = _persist_and_return(conversation, direct_reply)
+        yield progress_event(compose_id, compose_label, 'done')
+        yield _finish_turn(conversation, reply, channel, active_ticket_id, request=request)
+        return
 
     if not _openai_configured():
         reply = (
