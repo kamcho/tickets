@@ -1,0 +1,201 @@
+{% extends 'core/base.html' %}
+
+{% load static %}
+
+
+
+{% block title %}Support Assistant - Metrolinks{% endblock %}
+
+
+
+{% block extra_head %}
+
+<link rel="stylesheet" href="{% static 'core/css/assistant.css' %}">
+<link rel="stylesheet" href="{% static 'core/css/categories.css' %}">
+
+{% endblock %}
+
+
+
+{% block content %}
+
+<div class="assistant-page">
+
+    <div class="assistant-header">
+
+        <div>
+
+            <h1>Support Assistant</h1>
+
+            <p>Ask questions, check ticket status, or open a new support request.</p>
+
+        </div>
+
+        {% if whatsapp_enabled and whatsapp_display %}
+
+            <a href="https://wa.me/{{ whatsapp_display }}" class="btn btn-secondary assistant-wa-link" target="_blank" rel="noopener">
+
+                <i data-feather="message-circle"></i> Chat on WhatsApp
+
+            </a>
+
+        {% endif %}
+
+    </div>
+
+
+
+    {% if not assistant_enabled %}
+
+        <div class="alert-message alert-warning" role="alert" style="margin-bottom: 1rem;">
+
+            <i data-feather="alert-triangle"></i>
+
+            <span>AI is not configured on this server yet. Set <code>OPENAI_API_KEY</code> in your environment.</span>
+
+        </div>
+
+    {% endif %}
+
+
+
+    <div class="assistant-shell">
+
+        <div class="assistant-chat-panel card card--flush">
+
+            <div id="assistant-messages" class="assistant-messages" aria-live="polite">
+
+                <div class="assistant-msg assistant-msg--bot">
+
+                    <div class="assistant-msg-bubble">
+
+                        Hello! I'm the Metrolinks support assistant. I can help you open a ticket, check an existing ticket, or answer questions about our services. How can I help you today?
+
+                    </div>
+
+                </div>
+
+                {% for msg in chat_history %}
+
+                    <div class="assistant-msg assistant-msg--{% if msg.role == 'user' %}user{% else %}bot{% endif %}">
+
+                        <div class="assistant-msg-bubble">{{ msg.content }}</div>
+
+                    </div>
+
+                {% endfor %}
+
+            </div>
+
+
+
+            <form id="assistant-form" class="assistant-input-row">
+
+                {% csrf_token %}
+
+                <input
+
+                    type="text"
+
+                    id="assistant-input"
+
+                    class="form-input"
+
+                    placeholder="Type your message..."
+
+                    autocomplete="off"
+
+                    maxlength="4000"
+
+                    {% if not assistant_enabled %}disabled{% endif %}
+
+                >
+
+                <button type="submit" class="btn btn-primary" id="assistant-send" {% if not assistant_enabled %}disabled{% endif %}>
+
+                    <i data-feather="send"></i> Send
+
+                </button>
+
+            </form>
+
+        </div>
+
+
+
+        <aside class="assistant-sidebar card card--flush" aria-label="Tickets and progress">
+
+            <div class="assistant-sidebar__section">
+
+                <h2 class="assistant-sidebar__title">
+
+                    <i data-feather="layers"></i> Your tickets
+
+                </h2>
+
+                <div id="assistant-ticket-list" class="assistant-ticket-list">
+
+                    <p class="assistant-sidebar__empty">No tickets yet. Ask me to open a support request.</p>
+
+                </div>
+
+            </div>
+
+
+
+            <div class="assistant-sidebar__section">
+
+                <h2 class="assistant-sidebar__title">
+
+                    <i data-feather="tag"></i> Current ticket
+
+                </h2>
+
+                <div id="assistant-current-ticket" class="assistant-current-ticket">
+
+                    <p class="assistant-sidebar__empty">Select a ticket or create one in the chat.</p>
+
+                </div>
+
+            </div>
+
+
+
+            <div class="assistant-sidebar__section assistant-sidebar__section--progress">
+
+                <h2 class="assistant-sidebar__title">
+
+                    <i data-feather="loader"></i> Progress
+
+                </h2>
+
+                <div id="assistant-progress-panel" class="assistant-progress-panel">
+
+                    <p class="assistant-sidebar__empty assistant-progress-idle">Waiting for your next message.</p>
+
+                </div>
+
+            </div>
+
+        </aside>
+
+    </div>
+
+</div>
+
+
+
+<script>
+
+    window.ASSISTANT_CHAT_STREAM_URL = "{% url 'assistant_chat_stream_api' %}";
+    window.CATEGORY_SUGGEST_URL = "{% url 'category_suggest_api' %}";
+    window.ASSISTANT_PORTAL_TICKETS_BASE = "{{ portal_tickets_base|escapejs }}";
+    window.ASSISTANT_SIDEBAR = {{ sidebar_json|safe }};
+    window.ASSISTANT_CATEGORIES = {{ categories_json|safe }};
+
+</script>
+
+<script src="{% static 'core/js/assistant-chat.js' %}"></script>
+
+{% endblock %}
+

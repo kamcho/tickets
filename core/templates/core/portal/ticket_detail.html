@@ -1,0 +1,110 @@
+{% extends 'core/portal/base.html' %}
+
+{% block title %}{{ ticket.ticket_id }} - My Ticket{% endblock %}
+
+{% block content %}
+<a href="{% url 'portal_ticket_list' %}" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.85rem; margin-bottom: 1.5rem;">
+    <i data-feather="arrow-left" style="width: 14px; height: 14px;"></i> All my tickets
+</a>
+
+<div style="margin-bottom: 2rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1.5rem;">
+    <div style="display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; margin-bottom: 0.5rem;">
+        <span style="font-size: 1.25rem; font-weight: 800; color: var(--primary);">{{ ticket.ticket_id }}</span>
+        {% if ticket.status == 'Open' %}
+            <span class="portal-status portal-status--open">Open</span>
+        {% elif ticket.status == 'In Progress' %}
+            <span class="portal-status portal-status--progress">In Progress</span>
+        {% elif ticket.status == 'On Hold' %}
+            <span class="portal-status portal-status--hold">On Hold</span>
+        {% elif ticket.status == 'Resolved' %}
+            <span class="portal-status portal-status--resolved">Resolved</span>
+        {% else %}
+            <span class="portal-status portal-status--closed">Closed</span>
+        {% endif %}
+        <span style="font-size: 0.8rem; color: var(--text-secondary);">{{ ticket.priority }} priority</span>
+    </div>
+    <p style="color: var(--text-secondary); font-size: 0.9rem;">
+        {{ ticket.categories_display }} &bull; Opened {{ ticket.created_at|date:"d M Y H:i" }}
+        {% if assignment %}
+            &bull; Assigned to {{ assignment.assigned_to.first_name }} {{ assignment.assigned_to.last_name }}
+        {% endif %}
+    </p>
+</div>
+
+<div class="ticket-detail-grid">
+    <div style="display: flex; flex-direction: column; gap: 1.5rem;">
+        <div class="card" style="padding: 1.5rem;">
+            <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 0.75rem;">Your request</h3>
+            <div style="white-space: pre-wrap; line-height: 1.6; font-size: 0.95rem;">{{ ticket.description }}</div>
+        </div>
+
+        <div class="card" style="padding: 1.5rem;">
+            <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 1rem;">Updates ({{ comments.count }})</h3>
+            <div style="display: flex; flex-direction: column; gap: 1rem; margin-bottom: 1.5rem;">
+                {% for comment in comments %}
+                <div style="background: rgba(255,255,255,0.02); border: 1px solid var(--border-color); border-radius: 8px; padding: 1rem;">
+                    <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem; flex-wrap: wrap; gap: 0.5rem;">
+                        <span style="font-weight: 600; font-size: 0.85rem;">{{ comment.author_name }}
+                            <span style="color: var(--text-muted); font-weight: 500;">({{ comment.author_role_label }})</span>
+                        </span>
+                        <span style="font-size: 0.75rem; color: var(--text-muted);">{{ comment.commented_at|date:"d M Y H:i" }}</span>
+                    </div>
+                    <div style="white-space: pre-wrap; font-size: 0.9rem;">{{ comment.comment }}</div>
+                </div>
+                {% empty %}
+                <p style="color: var(--text-muted); font-size: 0.9rem;">No updates yet. Our team will post here when they respond.</p>
+                {% endfor %}
+            </div>
+
+            {% if ticket.status != 'Closed' %}
+            <form method="post" style="border-top: 1px solid var(--border-color); padding-top: 1rem;">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="add_comment">
+                <div class="form-group">
+                    <label class="form-label">Add a message</label>
+                    <textarea name="comment" class="form-input" rows="3" placeholder="Ask a question or add details..." required></textarea>
+                </div>
+                <button type="submit" class="btn btn-primary" style="padding: 0.6rem 1.25rem;">
+                    <i data-feather="message-square" style="width: 14px; height: 14px;"></i> Send message
+                </button>
+            </form>
+            {% else %}
+            <p style="font-size: 0.85rem; color: var(--text-muted);">This ticket is closed. Open a new ticket if you need further help.</p>
+            {% endif %}
+        </div>
+
+        <div class="card" style="padding: 1.5rem;">
+            <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 1rem;">Attachments</h3>
+            {% for att in attachments %}
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-bottom: 1px solid var(--border-color);">
+                <span style="font-size: 0.9rem;">{{ att.attachment.name|cut:"attachments/" }}</span>
+                <a href="{{ att.attachment.url }}" class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.75rem;" target="_blank">Download</a>
+            </div>
+            {% empty %}
+            <p style="color: var(--text-muted); font-size: 0.85rem;">No files attached.</p>
+            {% endfor %}
+
+            {% if ticket.status != 'Closed' %}
+            <form method="post" enctype="multipart/form-data" style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid var(--border-color);">
+                {% csrf_token %}
+                <input type="hidden" name="action" value="add_attachment">
+                <div class="form-group" style="margin-bottom: 0.75rem;">
+                    <input type="file" name="attachment" class="form-input" required>
+                </div>
+                <button type="submit" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.8rem;">Upload file</button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="card" style="padding: 1.5rem; height: fit-content;">
+        <h3 style="font-size: 1rem; font-weight: 700; margin-bottom: 1rem;">Ticket summary</h3>
+        <dl style="font-size: 0.9rem; color: var(--text-secondary); display: flex; flex-direction: column; gap: 0.65rem;">
+            <div><dt style="font-weight: 600; color: var(--text-primary);">Status</dt><dd>{{ ticket.status }}</dd></div>
+            <div><dt style="font-weight: 600; color: var(--text-primary);">Last updated</dt><dd>{{ ticket.updated_at|date:"d M Y H:i" }}</dd></div>
+            <div><dt style="font-weight: 600; color: var(--text-primary);">Contact</dt><dd>{{ customer.phone }}</dd></div>
+        </dl>
+        <a href="{% url 'portal_ticket_create' %}" class="btn btn-secondary" style="width: 100%; margin-top: 1rem; text-align: center;">Open another ticket</a>
+    </div>
+</div>
+{% endblock %}

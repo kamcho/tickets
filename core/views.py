@@ -9,43 +9,62 @@ from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.db.models import Q, Count, Prefetch
 from django_hosts.resolvers import reverse as host_reverse
-from .models import MyUser, Ticket, TicketCategory, TicketAssignment, TicketComments, TicketAttachments, Customer
-from .forms import TicketForm, CommentForm, AttachmentForm, UserCreateForm, CustomerForm
+from .models import MyUser, Ticket, TicketCategory, TicketAssignment, TicketComments, TicketAttachments
+from .ticket_urls import ticket_created_flash_message
+from .forms import (
+    TicketForm, CommentForm, AttachmentForm, UserCreateForm, CustomerForm,
+    ProfileForm, ProfilePasswordForm,
+)
+
+
+def redirect_after_login(user):
+    if user.role == 'Customer':
+        return redirect('portal_ticket_list')
+    if settings.DEBUG:
+        return redirect('home')
+    return redirect(host_reverse('home', host='tickets'))
 
 
 def redirect_to_portal_home():
-    """Send authenticated users to the ticket dashboard (not the marketing landing page)."""
+    """Send authenticated staff to the ticket dashboard."""
     if settings.DEBUG:
         return redirect('home')
     return redirect(host_reverse('home', host='tickets'))
 
 
 def landing_page(request):
-    if request.user.is_authenticated and settings.DEBUG:
-        return redirect_to_portal_home()
+    # MyUser.objects.all().delete()
+    if request.user.is_authenticated:
+        if request.user.role == 'Customer':
+            return redirect('portal_ticket_list')
+        if settings.DEBUG:
+            return redirect_to_portal_home()
     return render(request, "core/landing.html")
 
 
 def login_view(request):
     if request.user.is_authenticated:
-        return redirect_to_portal_home()
+        return redirect_after_login(request.user)
 
     if request.method == "POST":
-        email = request.POST.get("username")  # email is passed as username field
+        login_id = (request.POST.get("username") or "").strip()
         password = request.POST.get("password")
 
         user = authenticate(
             request,
-            username=email,
-            password=password
+            username=login_id,
+            password=password,
         )
 
         if user is not None:
+            if user.role == 'Customer':
+                messages.info(request, "Customer accounts use the Client Portal.")
+                return redirect('portal_login')
             login(request, user)
-            messages.success(request, f"Welcome back, {user.email}!")
-            return redirect_to_portal_home()
+            messages.success(request, f"Welcome back, {user.display_name}!")
+            return redirect_after_login(user)
         else:
-            messages.error(request, "Invalid email or password")
+            messages.error(request, "Invalid phone, email, or password.")
 
     return render(request, "core/login.html")
 
@@ -56,8 +75,50 @@ def logout_view(request):
         messages.info(request, "You have been logged out successfully.")
     return redirect("/login/")
 
+
+@login_required(login_url='/login/')
+def profile_view(request):
+    """View and update the signed-in user's profile."""
+    if request.user.role == 'Customer':
+        return redirect('portal_ticket_list')
+
+    user = request.user
+    profile_form = ProfileForm(instance=user)
+    password_form = ProfilePasswordForm()
+
+    if request.method == 'POST':
+        action = request.POST.get('action', 'profile')
+
+        if action == 'password':
+            password_form = ProfilePasswordForm(request.POST)
+            if password_form.is_valid():
+                if not user.check_password(password_form.cleaned_data['current_password']):
+                    messages.error(request, 'Current password is incorrect.')
+                else:
+                    user.set_password(password_form.cleaned_data['new_password'])
+                    user.save(update_fields=['password'])
+                    messages.success(request, 'Password updated successfully.')
+                    return redirect('profile')
+            messages.error(request, 'Please correct the password errors below.')
+        else:
+            profile_form = ProfileForm(request.POST, instance=user)
+            if profile_form.is_valid():
+                profile_form.save()
+                messages.success(request, 'Profile updated successfully.')
+                return redirect('profile')
+            messages.error(request, 'Please correct the errors below.')
+
+    return render(request, 'core/profile.html', {
+        'profile_form': profile_form,
+        'password_form': password_form,
+        'user': user,
+    })
+
+
 @login_required(login_url='/login/')
 def home_view(request):
+    if request.user.role == 'Customer':
+        return redirect('portal_ticket_list')
     is_agent = request.user.role == 'Field Agent'
     
     # Fetch filter params
@@ -67,6 +128,7 @@ def home_view(request):
     search_query = request.GET.get('search', '')
 
     tickets = Ticket.objects.prefetch_related(
+        'categories',
         Prefetch(
             'ticketassignment_set',
             queryset=TicketAssignment.objects.select_related('assigned_to').order_by('-assigned_at'),
@@ -87,7 +149,7 @@ def home_view(request):
     if priority_filter:
         tickets = tickets.filter(priority=priority_filter)
     if category_filter:
-        tickets = tickets.filter(category_id=category_filter)
+        tickets = tickets.filter(categories__id=category_filter).distinct()
     if search_query:
         tickets = tickets.filter(
             Q(ticket_id__icontains=search_query) |
@@ -128,28 +190,52 @@ def home_view(request):
     }
     return render(request, "core/home.html", context)
 
-def _save_ticket_with_attachment(request, ticket):
+def _save_ticket_with_attachment(request, ticket, form=None, sms_source='ticket_create_page'):
+    from core.sms_debug import sms_debug
+
+    sms_debug(sms_source, 'ticket_saved', ticket_id=ticket.ticket_id, customer_id=ticket.customer_id)
     ticket.save()
+    if form is not None:
+        form.save_m2m()
     attachment_file = request.FILES.get('attachment')
     if attachment_file:
         TicketAttachments.objects.create(
             ticket=ticket,
             attachment=attachment_file
         )
+        sms_debug(sms_source, 'attachment_saved', ticket_id=ticket.ticket_id)
+    from core.notifications import notify_ticket_created
+    notify_ticket_created(ticket, source=sms_source)
     return ticket
+
+
+def _user_can_create_tickets(user):
+    return user.role in ('Admin', 'Receptionist')
 
 
 def _user_can_assign_tickets(user):
     return user.role in ['Admin', 'Receptionist'] or user.is_staff
 
 
-def _apply_ticket_assignment(ticket, form, user):
+def _apply_ticket_assignment(ticket, form, user, sms_source='ticket_create_page'):
+    from core.sms_debug import sms_debug
+
     if not _user_can_assign_tickets(user):
+        sms_debug(sms_source, 'assign_skip', reason='user_cannot_assign', user_role=user.role)
         return None
     assigned_to = form.cleaned_data.get('assigned_to')
     if not assigned_to:
+        sms_debug(sms_source, 'assign_skip', reason='no_agent_in_form', ticket_id=ticket.ticket_id)
         return None
-    TicketAssignment.objects.create(ticket=ticket, assigned_to=assigned_to)
+    sms_debug(
+        sms_source,
+        'assign_from_form',
+        ticket_id=ticket.ticket_id,
+        agent_id=assigned_to.pk,
+        agent_email=assigned_to.email,
+    )
+    from core.notifications import assign_ticket_to_agent
+    assign_ticket_to_agent(ticket, assigned_to, source=sms_source)
     return assigned_to
 
 
@@ -169,10 +255,11 @@ def _agent_display_name(user):
 @login_required(login_url='/login/')
 def customer_search_api(request):
     q = request.GET.get('q', '').strip()
-    qs = Customer.objects.all().order_by('contact_name')
+    qs = MyUser.objects.filter(role='Customer').order_by('first_name', 'last_name', 'email')
     if q:
         qs = qs.filter(
-            Q(contact_name__icontains=q)
+            Q(first_name__icontains=q)
+            | Q(last_name__icontains=q)
             | Q(phone__icontains=q)
             | Q(email__icontains=q)
         )
@@ -181,7 +268,7 @@ def customer_search_api(request):
         'results': [
             {
                 'id': c.id,
-                'name': c.contact_name,
+                'name': c.display_name,
                 'sublabel': c.phone,
                 'email': c.email,
             }
@@ -222,12 +309,12 @@ def agent_search_api(request):
 def _hybrid_initial_customer(customer_id):
     if not customer_id:
         return None
-    customer = Customer.objects.filter(pk=customer_id).first()
+    customer = MyUser.objects.filter(pk=customer_id, role='Customer').first()
     if not customer:
         return None
     return {
         'value': customer.id,
-        'name': customer.contact_name,
+        'name': customer.display_name,
         'sublabel': customer.phone,
     }
 
@@ -245,23 +332,20 @@ def _hybrid_initial_agent(agent_id):
     }
 
 
-def _ticket_created_message(ticket, assigned_to=None, customer_name=None):
-    if customer_name:
-        msg = f"Customer '{customer_name}' registered and ticket {ticket.ticket_id} created successfully!"
-    else:
-        msg = f"Ticket {ticket.ticket_id} created successfully!"
-    if assigned_to:
-        msg += f" Assigned to {assigned_to.email}."
-    return msg
-
-
 @login_required(login_url='/login/')
 def ticket_create_view(request):
+    if not _user_can_create_tickets(request.user):
+        messages.error(request, 'Only admins and receptionists can create tickets.')
+        return redirect('home')
+
     customer_mode = 'existing'
     customer_form = CustomerForm(prefix='new_customer')
     can_assign = _user_can_assign_tickets(request.user)
 
     if request.method == "POST":
+        from core.sms_debug import sms_debug
+
+        sms_debug('ticket_create_page', 'post_received', can_assign=can_assign)
         customer_mode = request.POST.get('customer_mode', 'existing')
         form = TicketForm(request.POST, can_assign=can_assign)
         create_new_customer = customer_mode == 'new'
@@ -272,19 +356,33 @@ def ticket_create_view(request):
                 customer = customer_form.save()
                 ticket = form.save(commit=False)
                 ticket.customer = customer
-                ticket = _save_ticket_with_attachment(request, ticket)
-                assigned_to = _apply_ticket_assignment(ticket, form, request.user)
+                ticket = _save_ticket_with_attachment(
+                    request, ticket, form=form, sms_source='ticket_create_page',
+                )
+                assigned_to = _apply_ticket_assignment(
+                    ticket, form, request.user, sms_source='ticket_create_page',
+                )
                 messages.success(
                     request,
-                    _ticket_created_message(ticket, assigned_to, customer.contact_name),
+                    ticket_created_flash_message(
+                        ticket, request, customer_name=customer.display_name,
+                        assigned_to=assigned_to,
+                    ),
                 )
                 return redirect(f"/tickets/{ticket.ticket_id}/")
             messages.error(request, "Please correct the errors below.")
         elif form.is_valid():
             ticket = form.save(commit=False)
-            ticket = _save_ticket_with_attachment(request, ticket)
-            assigned_to = _apply_ticket_assignment(ticket, form, request.user)
-            messages.success(request, _ticket_created_message(ticket, assigned_to))
+            ticket = _save_ticket_with_attachment(
+                request, ticket, form=form, sms_source='ticket_create_page',
+            )
+            assigned_to = _apply_ticket_assignment(
+                ticket, form, request.user, sms_source='ticket_create_page',
+            )
+            messages.success(
+                request,
+                ticket_created_flash_message(ticket, request, assigned_to=assigned_to),
+            )
             return redirect(f"/tickets/{ticket.ticket_id}/")
         else:
             messages.error(request, "Please correct the errors below.")
@@ -336,20 +434,40 @@ def ticket_detail_view(request, ticket_id):
             
         # 3. Update Assignment
         elif action == 'update_assignment':
+            from core.sms_debug import sms_debug
+
+            sms_debug(
+                'ticket_detail_page',
+                'update_assignment_post',
+                ticket_id=ticket.ticket_id,
+                assigned_to_id=request.POST.get('assigned_to'),
+            )
             if _user_can_assign_tickets(request.user):
                 assigned_to_id = request.POST.get('assigned_to')
                 if assigned_to_id:
-                    assigned_user = get_object_or_404(MyUser, id=assigned_to_id)
-                    # Remove any existing assignments for this ticket
-                    TicketAssignment.objects.filter(ticket=ticket).delete()
-                    # Create new assignment
-                    TicketAssignment.objects.create(
-                        ticket=ticket,
-                        assigned_to=assigned_user
-                    )
-                    messages.success(request, f"Ticket assigned to {assigned_user.email}.")
+                    assigned_user = MyUser.objects.filter(
+                        id=assigned_to_id, role='Field Agent',
+                    ).first()
+                    if not assigned_user:
+                        messages.error(
+                            request,
+                            'Please select a valid field agent.',
+                        )
+                    else:
+                        from core.notifications import assign_ticket_to_agent
+                        assign_ticket_to_agent(
+                            ticket, assigned_user, source='ticket_detail_page',
+                        )
+                        messages.success(
+                            request,
+                            f"Ticket assigned to {assigned_user.email}.",
+                        )
                 else:
-                    # Clear assignment
+                    sms_debug(
+                        'ticket_detail_page',
+                        'assignment_cleared',
+                        ticket_id=ticket.ticket_id,
+                    )
                     TicketAssignment.objects.filter(ticket=ticket).delete()
                     messages.success(request, "Ticket assignment cleared.")
             else:
@@ -370,19 +488,22 @@ def ticket_detail_view(request, ticket_id):
             return redirect(f"/tickets/{ticket.ticket_id}/")
 
     # Fetch details, comments, and attachments
-    comments = TicketComments.objects.filter(ticket=ticket).order_by('commented_at')
+    comments = TicketComments.objects.filter(ticket=ticket).select_related(
+        'commented_by',
+    ).order_by('commented_at')
     attachments = TicketAttachments.objects.filter(ticket=ticket).order_by('uploaded_at')
     current_assignment = TicketAssignment.objects.filter(ticket=ticket).first()
     
-    # User lists for assignment dropdown
-    all_agents = MyUser.objects.all()
-    
+    field_agents = MyUser.objects.filter(role='Field Agent').order_by(
+        'first_name', 'last_name', 'email',
+    )
+
     context = {
         'ticket': ticket,
         'comments': comments,
         'attachments': attachments,
         'assignment': current_assignment,
-        'agents': all_agents,
+        'agents': field_agents,
         'statuses': Ticket.STATUS
     }
     return render(request, "core/ticket_detail.html", context)
@@ -398,8 +519,8 @@ def _build_user_assignment_rows(users):
         TicketAssignment.objects.filter(assigned_to_id__in=user_ids)
         .values(
             'assigned_to_id',
-            'ticket__category_id',
-            'ticket__category__name',
+            'ticket__categories__id',
+            'ticket__categories__name',
             'ticket__status',
         )
         .annotate(count=Count('ticket', distinct=True))
@@ -409,8 +530,10 @@ def _build_user_assignment_rows(users):
     category_names = {}
     for row in matrix_qs:
         user_id = row['assigned_to_id']
-        category_id = row['ticket__category_id']
-        category_names[category_id] = row['ticket__category__name']
+        category_id = row['ticket__categories__id']
+        if not category_id:
+            continue
+        category_names[category_id] = row['ticket__categories__name']
         grid[user_id][category_id][row['ticket__status']] = row['count']
 
     user_rows = []
@@ -448,7 +571,9 @@ def user_list_view(request):
         messages.error(request, "Access denied. Only Admins can manage users.")
         return redirect("/")
 
-    users = list(MyUser.objects.all().order_by('-date_joined'))
+    users = list(
+        MyUser.objects.exclude(role='Customer').order_by('-date_joined')
+    )
     user_rows = _build_user_assignment_rows(users)
     ticket_statuses = [status for status, _ in Ticket.STATUS]
 
@@ -497,14 +622,17 @@ CUSTOMERS_PER_PAGE = 100
 @login_required(login_url='/login/')
 def customer_list_view(request):
     search_query = request.GET.get('search', '').strip()
-    customers_qs = Customer.objects.annotate(ticket_count=Count('tickets')).order_by('-created_at')
+    customers_qs = MyUser.objects.filter(role='Customer').annotate(
+        ticket_count=Count('customer_tickets'),
+    ).order_by('-date_joined')
 
     if search_query:
         customers_qs = customers_qs.filter(
-            Q(contact_name__icontains=search_query) |
-            Q(email__icontains=search_query) |
-            Q(phone__icontains=search_query) |
-            Q(address__icontains=search_query)
+            Q(first_name__icontains=search_query)
+            | Q(last_name__icontains=search_query)
+            | Q(email__icontains=search_query)
+            | Q(phone__icontains=search_query)
+            | Q(address__icontains=search_query)
         )
 
     paginator = Paginator(customers_qs, CUSTOMERS_PER_PAGE)
@@ -514,7 +642,7 @@ def customer_list_view(request):
         'page_obj': page_obj,
         'customers': page_obj,
         'metrics': {
-            'total_customers': Customer.objects.count(),
+            'total_customers': MyUser.objects.filter(role='Customer').count(),
             'total_tickets': Ticket.objects.filter(customer__isnull=False).count(),
         },
         'search': search_query,
@@ -530,8 +658,19 @@ def customer_create_view(request):
     if request.method == "POST":
         form = CustomerForm(request.POST)
         if form.is_valid():
-            form.save()
-            messages.success(request, f"Customer '{form.cleaned_data['contact_name']}' added successfully!")
+            customer = form.save()
+            portal_password = (form.cleaned_data.get('portal_password') or '').strip()
+            if portal_password:
+                messages.success(
+                    request,
+                    f"Customer '{customer.display_name}' added with portal login enabled.",
+                )
+            else:
+                messages.success(
+                    request,
+                    f"Customer '{customer.display_name}' added. "
+                    f"Portal login: phone + phone number as password.",
+                )
             return redirect("customer_list")
         else:
             messages.error(request, "Please correct the errors below.")
@@ -542,7 +681,7 @@ def customer_create_view(request):
 
 @login_required(login_url='/login/')
 def customer_detail_view(request, pk):
-    customer = get_object_or_404(Customer, pk=pk)
+    customer = get_object_or_404(MyUser, pk=pk, role='Customer')
     tickets = Ticket.objects.filter(customer=customer).order_by('-created_at')
 
     open_count = tickets.filter(status='Open').count()

@@ -1,0 +1,113 @@
+{% extends 'core/portal/base.html' %}
+
+{% block title %}Sign in - Metrolinks Client Portal{% endblock %}
+
+{% block content %}
+<div class="portal-login-card card">
+    <div style="text-align: center; margin-bottom: 1.5rem;">
+        <h1 style="font-size: 1.5rem; font-weight: 800; margin-bottom: 0.35rem;">Client Portal</h1>
+        <p style="color: var(--text-secondary); font-size: 0.9rem;">Sign in to view tickets and open support requests</p>
+    </div>
+
+    <div class="portal-tabs">
+        <a href="?mode=login" class="portal-tab {% if mode == 'login' %}active{% endif %}">Sign in</a>
+        <a href="?mode=register" class="portal-tab {% if mode == 'register' %}active{% endif %}">Register</a>
+        <a href="?mode=activate" class="portal-tab {% if mode == 'activate' %}active{% endif %}">Activate</a>
+        <a href="?mode=lookup" class="portal-tab {% if mode == 'lookup' %}active{% endif %}">Find ticket</a>
+    </div>
+
+    {% if mode == 'register' %}
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="register">
+            <div class="form-group">
+                <label class="form-label">Full name</label>
+                {{ register_form.contact_name }}
+            </div>
+            <div class="form-group">
+                <label class="form-label">Email</label>
+                {{ register_form.email }}
+            </div>
+            <div class="form-group">
+                <label class="form-label">Phone</label>
+                {{ register_form.phone }}
+            </div>
+            <div class="form-group">
+                <label class="form-label">Password</label>
+                {{ register_form.password }}
+            </div>
+            <div class="form-group">
+                <label class="form-label">Confirm password</label>
+                {{ register_form.confirm_password }}
+            </div>
+            <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.8rem;">Create account</button>
+        </form>
+
+    {% elif mode == 'activate' %}
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="activate">
+            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">
+                Already in our system? Confirm your email and phone, then choose a password.
+            </p>
+            <div class="form-group">
+                <label class="form-label">Email</label>
+                {{ activate_form.email }}
+            </div>
+            <div class="form-group">
+                <label class="form-label">Phone</label>
+                {{ activate_form.phone }}
+            </div>
+            <div class="form-group">
+                <label class="form-label">New password</label>
+                {{ activate_form.password }}
+            </div>
+            <div class="form-group">
+                <label class="form-label">Confirm password</label>
+                {{ activate_form.confirm_password }}
+            </div>
+            <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.8rem;">Activate account</button>
+        </form>
+
+    {% elif mode == 'lookup' %}
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="lookup">
+            <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">
+                Quick access with ticket ID and phone (full account uses phone or email + password).
+            </p>
+            <div class="form-group">
+                <label class="form-label">Ticket ID</label>
+                {{ lookup_form.ticket_id }}
+            </div>
+            <div class="form-group">
+                <label class="form-label">Phone number</label>
+                {{ lookup_form.phone }}
+            </div>
+            <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.8rem;">View ticket</button>
+        </form>
+
+    {% else %}
+        <form method="post">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="login">
+            <div class="form-group">
+                <label class="form-label">{{ login_form.phone_or_email.label }}</label>
+                {{ login_form.phone_or_email }}
+                <span style="color: var(--text-muted); font-size: 0.8rem;">Use phone or email. Default password is your phone (e.g. 0712… or 254712…).</span>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Password</label>
+                {{ login_form.password }}
+            </div>
+            <button type="submit" class="btn btn-primary" style="width: 100%; padding: 0.8rem;">Sign in</button>
+        </form>
+    {% endif %}
+
+    <p style="text-align: center; margin-top: 1.5rem; font-size: 0.85rem; color: var(--text-muted);">
+        <strong>Staff (Admin / Receptionist / Field Agent)?</strong>
+        <a href="/login/" style="color: var(--accent);">Agent login</a> &bull;
+        <a href="{% url 'assistant' %}" style="color: var(--accent);">AI assistant</a>
+    </p>
+</div>
+{% endblock %}

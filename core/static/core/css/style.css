@@ -214,6 +214,14 @@ body::after {
     flex-shrink: 0;
 }
 
+.nav-auth-links {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+}
+
 .nav-backdrop {
     display: none;
     position: fixed;
@@ -471,6 +479,35 @@ footer,
     font-size: 0.85rem;
     color: var(--text-muted);
     overflow-wrap: anywhere;
+}
+
+.footer-contact {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.35rem;
+    text-align: left;
+}
+
+.footer-contact__line {
+    margin: 0;
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    line-height: 1.5;
+}
+
+.footer-contact__line a {
+    color: var(--accent);
+    text-decoration: none;
+}
+
+.footer-contact__line a:hover {
+    text-decoration: underline;
+}
+
+.footer-contact__sep {
+    color: var(--text-muted);
+    margin: 0 0.15rem;
 }
 
 .footer-brand {
@@ -1001,5 +1038,165 @@ footer,
     .nav-actions .btn {
         padding: 0.5rem 0.85rem;
         font-size: 0.8rem;
+    }
+}
+
+/* Floating AI Assistant button — bottom left */
+.assistant-fab {
+    position: fixed;
+    left: max(1.25rem, env(safe-area-inset-left, 0px));
+    bottom: max(1.25rem, env(safe-area-inset-bottom, 0px));
+    z-index: 1001;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.85rem 1.15rem 0.85rem 0.95rem;
+    border-radius: 999px;
+    border: 1px solid rgba(99, 102, 241, 0.55);
+    background: linear-gradient(135deg, var(--primary) 0%, #4f46e5 50%, var(--accent) 100%);
+    color: #fff;
+    font-size: 0.88rem;
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-decoration: none;
+    box-shadow:
+        0 8px 28px rgba(99, 102, 241, 0.45),
+        0 2px 8px rgba(0, 0, 0, 0.35);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+
+.assistant-fab:hover {
+    color: #fff;
+    transform: translateY(-3px) scale(1.02);
+    box-shadow:
+        0 12px 36px rgba(99, 102, 241, 0.55),
+        0 4px 12px rgba(0, 0, 0, 0.4);
+    filter: brightness(1.08);
+}
+
+.assistant-fab:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+}
+
+.assistant-fab__icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.2);
+}
+
+.assistant-fab__icon svg {
+    width: 20px;
+    height: 20px;
+    stroke-width: 2.25;
+}
+
+.assistant-fab__label {
+    padding-right: 0.15rem;
+    white-space: nowrap;
+}
+
+/* Floating WhatsApp — bottom right */
+.whatsapp-fab {
+    position: fixed;
+    right: max(1.25rem, env(safe-area-inset-right, 0px));
+    bottom: max(1.25rem, env(safe-area-inset-bottom, 0px));
+    z-index: 1001;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.85rem 1.1rem 0.85rem 0.95rem;
+    border-radius: 999px;
+    border: 1px solid rgba(37, 211, 102, 0.5);
+    background: linear-gradient(135deg, #25d366 0%, #128c7e 100%);
+    color: #fff;
+    font-size: 0.88rem;
+    font-weight: 700;
+    text-decoration: none;
+    box-shadow:
+        0 8px 28px rgba(37, 211, 102, 0.4),
+        0 2px 8px rgba(0, 0, 0, 0.35);
+    transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+}
+
+.whatsapp-fab:hover {
+    color: #fff;
+    transform: translateY(-3px) scale(1.02);
+    box-shadow:
+        0 12px 36px rgba(37, 211, 102, 0.5),
+        0 4px 12px rgba(0, 0, 0, 0.4);
+    filter: brightness(1.06);
+}
+
+.whatsapp-fab:focus-visible {
+    outline: 2px solid #dcf8c6;
+    outline-offset: 3px;
+}
+
+.whatsapp-fab__icon {
+    width: 26px;
+    height: 26px;
+    flex-shrink: 0;
+}
+
+.whatsapp-fab__label {
+    white-space: nowrap;
+    padding-right: 0.1rem;
+}
+
+/* Stack FABs when both visible: assistant left, WhatsApp right */
+@media (max-width: 480px) {
+    .assistant-fab {
+        padding: 0.75rem;
+        border-radius: 50%;
+        width: 56px;
+        height: 56px;
+        justify-content: center;
+    }
+
+    .assistant-fab__label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+    }
+
+    .assistant-fab__icon {
+        width: 28px;
+        height: 28px;
+    }
+
+    .whatsapp-fab {
+        padding: 0.75rem;
+        border-radius: 50%;
+        width: 56px;
+        height: 56px;
+        justify-content: center;
+    }
+
+    .whatsapp-fab__label {
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+    }
+
+    .whatsapp-fab__icon {
+        width: 28px;
+        height: 28px;
     }
 }

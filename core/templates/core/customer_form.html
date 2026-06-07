@@ -56,6 +56,14 @@
                 {% endif %}
             </div>
 
+            <div class="form-group">
+                <label for="id_portal_password" class="form-label">Client portal password <span style="color: var(--text-muted); font-weight: 400;">(optional)</span></label>
+                {{ form.portal_password }}
+                <span style="color: var(--text-muted); font-size: 0.8rem; margin-top: 0.25rem;">
+                    Customer can sign in at /portal/login/ with their email and this password.
+                </span>
+            </div>
+
             <!-- Location (Google Maps) -->
             <div class="form-group" style="margin-bottom: 2.5rem;">
                 <label for="{{ form.location.id_for_label }}" class="form-label">

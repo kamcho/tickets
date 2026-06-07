@@ -1,0 +1,56 @@
+<header class="landing-header" id="landing-header">
+    <div class="landing-header__inner">
+        <a href="/" class="landing-brand">
+            <div class="landing-brand__mark" aria-hidden="true">
+                {% include 'core/includes/metrolinks_mark.html' %}
+            </div>
+            <div class="landing-brand__text">
+                <span class="landing-brand__name">Metrolinks <span style="color: var(--landing-gold, #ffeb3b);">Solution</span></span>
+                <span class="landing-brand__tagline">Internet &amp; Support</span>
+            </div>
+        </a>
+
+        <nav class="landing-nav" aria-label="Main navigation">
+            <a href="#home" class="landing-nav__link">Home</a>
+            <a href="#services" class="landing-nav__link">Services</a>
+            <a href="#pricing" class="landing-nav__link">Pricing</a>
+            <a href="#testimonials" class="landing-nav__link">Testimonials</a>
+            <a href="#contact" class="landing-nav__link">Contact</a>
+        </nav>
+
+        <div class="landing-header__actions">
+            <a href="/assistant/" class="landing-link-btn">
+                <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+                </svg>
+                AI Assistant
+            </a>
+            <span class="landing-header__divider" aria-hidden="true"></span>
+            <a href="{{ staff_login_url }}" class="landing-btn landing-btn--ghost">Agent login</a>
+            <a href="{{ client_portal_login_url }}" class="landing-btn landing-btn--primary">Client portal</a>
+        </div>
+
+        <button type="button" class="landing-menu-toggle" id="landing-menu-toggle" aria-label="Open menu" aria-expanded="false" aria-controls="landing-mobile-panel">
+            <svg fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"/>
+            </svg>
+        </button>
+    </div>
+</header>
+
+<div class="landing-mobile-panel" id="landing-mobile-panel" aria-hidden="true">
+    <div class="landing-mobile-menu">
+        <div class="landing-mobile-menu__links">
+            <a href="#home">Home</a>
+            <a href="#services">Services</a>
+            <a href="#pricing">Pricing</a>
+            <a href="#testimonials">Testimonials</a>
+            <a href="#contact">Contact</a>
+            <a href="/assistant/">AI Assistant</a>
+        </div>
+        <div class="landing-mobile-menu__actions">
+            <a href="{{ staff_login_url }}" class="landing-btn landing-btn--ghost">Agent login</a>
+            <a href="{{ client_portal_login_url }}" class="landing-btn landing-btn--primary">Client portal</a>
+        </div>
+    </div>
+</div>

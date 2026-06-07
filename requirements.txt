@@ -2,3 +2,4 @@ django
 python-dotenv
 whitenoise
 django-hosts
+httpx

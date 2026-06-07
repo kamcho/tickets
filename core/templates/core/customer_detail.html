@@ -1,6 +1,6 @@
 {% extends 'core/base.html' %}
 
-{% block title %}{{ customer.contact_name }} - Customer Profile{% endblock %}
+{% block title %}{{ customer.display_name }} - Customer Profile{% endblock %}
 
 {% block content %}
 <!-- Back Navigation -->
@@ -15,12 +15,12 @@
     <div style="display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;">
         <!-- Avatar -->
         <div style="width: 72px; height: 72px; border-radius: 50%; background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%); display: flex; align-items: center; justify-content: center; font-size: 1.75rem; color: white; font-weight: 800; flex-shrink: 0;">
-            {{ customer.contact_name|slice:":1"|upper }}
+            {{ customer.display_name|slice:":1"|upper }}
         </div>
         <!-- Info -->
         <div style="flex: 1;">
             <h1 style="font-size: 1.75rem; font-weight: 800; letter-spacing: -0.025em; margin-bottom: 0.25rem; color: var(--text-primary);">
-                {{ customer.contact_name }}
+                {{ customer.display_name }}
             </h1>
             <div style="display: flex; gap: 1.5rem; flex-wrap: wrap; color: var(--text-secondary); font-size: 0.875rem;">
                 <span><i data-feather="mail" style="width: 13px; height: 13px; vertical-align: middle;"></i> {{ customer.email }}</span>
@@ -37,9 +37,11 @@
         </div>
         <!-- Quick Actions -->
         <div style="display: flex; gap: 0.75rem;">
-            <a href="/tickets/create/" class="btn btn-primary" style="padding: 0.6rem 1.25rem; font-size: 0.85rem;">
+            {% if can_create_ticket %}
+            <a href="{% url 'ticket_create' %}" class="btn btn-primary" style="padding: 0.6rem 1.25rem; font-size: 0.85rem;">
                 <i data-feather="plus-circle" style="width: 14px; height: 14px;"></i> Open Ticket
             </a>
+            {% endif %}
         </div>
     </div>
 </div>
@@ -132,6 +134,6 @@
 
 <!-- Audit Footer -->
 <div style="margin-top: 1.5rem; text-align: right; color: var(--text-muted); font-size: 0.8rem;">
-    Registered: {{ customer.created_at|date:"d M Y H:i" }} &bull; Last Updated: {{ customer.updated_at|date:"d M Y H:i" }}
+    Registered: {{ customer.date_joined|date:"d M Y H:i" }}
 </div>
 {% endblock %}

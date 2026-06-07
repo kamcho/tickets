@@ -1,0 +1,122 @@
+{% extends 'core/portal/base.html' %}
+
+{% load static %}
+
+
+
+{% block title %}New Ticket - Metrolinks{% endblock %}
+
+
+
+{% block extra_head %}
+
+<link rel="stylesheet" href="{% static 'core/css/categories.css' %}?v=2">
+
+{% endblock %}
+
+
+
+{% block content %}
+
+<a href="{% url 'portal_ticket_list' %}" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.85rem; margin-bottom: 1.5rem;">
+
+    <i data-feather="arrow-left" style="width: 14px; height: 14px;"></i> Back to my tickets
+
+</a>
+
+
+
+<div class="card" style="max-width: 720px;">
+
+    <h1 style="font-size: 1.5rem; font-weight: 800; margin-bottom: 0.35rem;">Open a support ticket</h1>
+
+    <p style="color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 1.5rem;">
+
+        Logged in as {{ customer.display_name }} ({{ customer.email }})
+
+    </p>
+
+
+
+    <form method="post">
+
+        {% csrf_token %}
+
+        <div class="form-group">
+
+            <label class="form-label" for="complaint-description">Describe your issue</label>
+
+            {{ form.description }}
+
+            {% if form.description.errors %}<span style="color: var(--danger); font-size: 0.8rem;">{{ form.description.errors.0 }}</span>{% endif %}
+
+        </div>
+
+
+
+        <section class="ticket-categories-section" aria-labelledby="portal-categories-label">
+
+            <div class="ticket-categories-section__header">
+
+                <label id="portal-categories-label" class="form-label">{{ form.categories.label }}</label>
+
+                <span class="ticket-categories-count" data-category-count aria-live="polite">0 selected</span>
+
+            </div>
+
+            <p class="ticket-categories-section__hint">{{ form.categories.help_text }}</p>
+
+            <div class="category-checkbox-list" id="category-checkbox-list">
+
+                {{ form.categories }}
+
+            </div>
+
+            {% if form.categories.errors %}
+
+                <span style="color: var(--danger); font-size: 0.8rem; margin-top: 0.75rem; display: block;">{{ form.categories.errors.0 }}</span>
+
+            {% endif %}
+
+        </section>
+
+
+
+        <div class="form-group">
+
+            <label class="form-label">Priority</label>
+
+            {{ form.priority }}
+
+        </div>
+
+
+
+        <div style="display: flex; gap: 0.75rem; margin-top: 1rem;">
+
+            <a href="{% url 'portal_ticket_list' %}" class="btn btn-secondary">Cancel</a>
+
+            <button type="submit" class="btn btn-primary">
+
+                <i data-feather="send" style="width: 14px; height: 14px;"></i> Submit ticket
+
+            </button>
+
+        </div>
+
+    </form>
+
+</div>
+
+
+
+<script>
+
+    window.CATEGORY_SUGGEST_URL = "{% url 'category_suggest_api' %}";
+
+</script>
+
+<script src="{% static 'core/js/category-picker.js' %}?v=2"></script>
+
+{% endblock %}
+

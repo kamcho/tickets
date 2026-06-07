@@ -1,0 +1,67 @@
+{% extends 'core/portal/base.html' %}
+
+{% block title %}My Tickets - Metrolinks{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem; margin-bottom: 2rem;">
+    <div>
+        <h1 style="font-size: 1.75rem; font-weight: 800; letter-spacing: -0.025em;">My Support Tickets</h1>
+        <p style="color: var(--text-secondary); font-size: 0.9rem;">Hello, {{ customer.display_name }} — track and manage your requests.</p>
+    </div>
+    <a href="{% url 'portal_ticket_create' %}" class="btn btn-primary">
+        <i data-feather="plus-circle" style="width: 16px; height: 16px;"></i> Open new ticket
+    </a>
+</div>
+
+<div class="card" style="padding: 0; overflow: hidden;">
+    <div class="table-scroll">
+        <table class="portal-ticket-table">
+            <thead>
+                <tr>
+                    <th>Ticket</th>
+                    <th>Issue</th>
+                    <th>Category</th>
+                    <th>Priority</th>
+                    <th>Status</th>
+                    <th>Opened</th>
+                    <th></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for ticket in tickets %}
+                <tr>
+                    <td data-label="Ticket"><strong style="color: var(--primary);">{{ ticket.ticket_id }}</strong></td>
+                    <td data-label="Issue">{{ ticket.description|truncatewords:12 }}</td>
+                    <td data-label="Categories">{{ ticket.categories_display }}</td>
+                    <td data-label="Priority">{{ ticket.priority }}</td>
+                    <td data-label="Status">
+                        {% if ticket.status == 'Open' %}
+                            <span class="portal-status portal-status--open">Open</span>
+                        {% elif ticket.status == 'In Progress' %}
+                            <span class="portal-status portal-status--progress">In Progress</span>
+                        {% elif ticket.status == 'On Hold' %}
+                            <span class="portal-status portal-status--hold">On Hold</span>
+                        {% elif ticket.status == 'Resolved' %}
+                            <span class="portal-status portal-status--resolved">Resolved</span>
+                        {% else %}
+                            <span class="portal-status portal-status--closed">Closed</span>
+                        {% endif %}
+                    </td>
+                    <td data-label="Opened">{{ ticket.created_at|date:"d M Y" }}</td>
+                    <td data-label="">
+                        <a href="{% url 'portal_ticket_detail' ticket.ticket_id %}" class="btn btn-secondary" style="padding: 0.4rem 0.85rem; font-size: 0.75rem;">View</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="7" style="padding: 3rem; text-align: center; color: var(--text-muted);">
+                        You have no tickets yet.
+                        <a href="{% url 'portal_ticket_create' %}" style="color: var(--accent);">Open your first ticket</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

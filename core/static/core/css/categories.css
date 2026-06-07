@@ -1,0 +1,303 @@
+/* —— Ticket / portal category picker (Django div-based checkboxes) —— */
+
+.ticket-categories-section {
+    margin-bottom: 1.5rem;
+    padding: 1.25rem 1.35rem 1.35rem;
+    border-radius: 14px;
+    border: 1px solid rgba(99, 102, 241, 0.22);
+    background: linear-gradient(145deg, rgba(22, 30, 49, 0.85), rgba(15, 23, 42, 0.6));
+    box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+}
+
+.ticket-categories-section__header {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem 1rem;
+    margin-bottom: 0.4rem;
+}
+
+.ticket-categories-section__header .form-label {
+    margin-bottom: 0;
+    font-size: 0.95rem;
+}
+
+.ticket-categories-section__hint {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    margin: 0 0 1.1rem;
+    line-height: 1.45;
+}
+
+.ticket-categories-count {
+    font-size: 0.72rem;
+    font-weight: 700;
+    letter-spacing: 0.03em;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    padding: 0.35rem 0.75rem;
+    border-radius: 999px;
+    border: 1px solid var(--border-color);
+    background: rgba(255, 255, 255, 0.04);
+}
+
+.ticket-categories-count--active {
+    color: #c7d2fe;
+    border-color: rgba(99, 102, 241, 0.55);
+    background: rgba(99, 102, 241, 0.2);
+    box-shadow: 0 0 12px var(--primary-glow);
+}
+
+/* Wrapper from template (optional) */
+.category-checkbox-list {
+    margin: 0;
+    padding: 0;
+}
+
+/* Grid — #id_categories after JS adds .category-picker-grid */
+.category-picker-grid,
+.ticket-categories-section [id$="_categories"].category-picker-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+    gap: 0.7rem;
+    margin: 0;
+    padding: 0;
+}
+
+.category-card {
+    margin: 0;
+    padding: 0;
+    min-width: 0;
+}
+
+.category-card__label {
+    display: flex;
+    align-items: center;
+    gap: 0.85rem;
+    margin: 0;
+    padding: 0.9rem 1rem;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    background: rgba(255, 255, 255, 0.04);
+    cursor: pointer;
+    transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease, transform 0.15s ease;
+    min-height: 52px;
+    position: relative;
+}
+
+.category-card__label:hover {
+    border-color: rgba(99, 102, 241, 0.45);
+    background: rgba(99, 102, 241, 0.08);
+    transform: translateY(-1px);
+}
+
+.category-card--checked .category-card__label {
+    border-color: rgba(99, 102, 241, 0.7);
+    background: rgba(99, 102, 241, 0.18);
+    box-shadow: 0 0 0 1px var(--primary-glow), 0 8px 20px rgba(99, 102, 241, 0.15);
+}
+
+.category-card--suggested:not(.category-card--checked) .category-card__label {
+    border-color: rgba(6, 182, 212, 0.5);
+    background: rgba(6, 182, 212, 0.1);
+}
+
+.category-card--suggested .category-card__label::after {
+    content: 'Suggested';
+    position: absolute;
+    top: 0.45rem;
+    right: 0.5rem;
+    font-size: 0.58rem;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: rgba(6, 182, 212, 0.2);
+    padding: 0.15rem 0.45rem;
+    border-radius: 4px;
+    pointer-events: none;
+}
+
+/* Hide native checkbox; custom box */
+.category-card__input {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+}
+
+.category-card__check {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    border-radius: 7px;
+    border: 2px solid rgba(148, 163, 184, 0.5);
+    background: rgba(15, 23, 42, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+}
+
+.category-card__check::after {
+    content: '';
+    width: 6px;
+    height: 10px;
+    border: solid transparent;
+    border-width: 0 2.5px 2.5px 0;
+    transform: rotate(45deg) scale(0);
+    margin-top: -2px;
+    transition: transform 0.15s ease;
+}
+
+.category-card--checked .category-card__check {
+    border-color: var(--primary);
+    background: linear-gradient(135deg, var(--primary), var(--accent));
+    box-shadow: 0 0 10px var(--primary-glow);
+}
+
+.category-card--checked .category-card__check::after {
+    border-color: #fff;
+    transform: rotate(45deg) scale(1);
+}
+
+.category-card__text {
+    flex: 1;
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    line-height: 1.35;
+    padding-right: 0.25rem;
+}
+
+.category-card--suggested .category-card__text {
+    padding-right: 4.2rem;
+}
+
+.category-card--checked .category-card__text {
+    color: #e0e7ff;
+}
+
+@media (max-width: 520px) {
+    .category-picker-grid,
+    .ticket-categories-section [id$="_categories"].category-picker-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* —— Assistant UI (unchanged) —— */
+
+.assistant-sidebar__hint {
+    margin: 0 0 0.65rem;
+    font-size: 0.78rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+
+.assistant-category-picker {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    max-height: 160px;
+    overflow-y: auto;
+}
+
+.assistant-category-option {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.65rem;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background: rgba(255, 255, 255, 0.03);
+    cursor: pointer;
+    font-size: 0.8rem;
+}
+
+.assistant-category-option--suggested {
+    border-color: rgba(99, 102, 241, 0.45);
+    background: rgba(99, 102, 241, 0.1);
+}
+
+.assistant-category-option input {
+    accent-color: var(--primary);
+}
+
+.assistant-category-option__badge {
+    margin-left: auto;
+    font-size: 0.6rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    color: var(--primary);
+}
+
+.assistant-msg--category-pick {
+    align-self: flex-start;
+    max-width: 95%;
+}
+
+.assistant-category-chat-card {
+    background: rgba(99, 102, 241, 0.1);
+    border: 1px solid rgba(99, 102, 241, 0.35);
+    border-radius: 12px;
+    padding: 1rem 1.1rem;
+}
+
+.assistant-category-chat-card__title {
+    font-size: 0.92rem;
+    font-weight: 700;
+    margin: 0 0 0.35rem;
+}
+
+.assistant-category-chat-card__hint {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+    margin: 0 0 0.85rem;
+}
+
+.assistant-category-chat-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    max-height: 220px;
+    overflow-y: auto;
+    margin-bottom: 0.85rem;
+}
+
+.assistant-category-chat-option {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.55rem 0.7rem;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    cursor: pointer;
+}
+
+.assistant-category-chat-option--suggested {
+    border-color: rgba(99, 102, 241, 0.5);
+    background: rgba(99, 102, 241, 0.14);
+}
+
+.assistant-category-chat-actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.assistant-category-chat-error {
+    display: none;
+    font-size: 0.8rem;
+    color: var(--danger);
+    margin: 0 0 0.5rem;
+}
+
+.assistant-category-chat-error--visible {
+    display: block;
+}

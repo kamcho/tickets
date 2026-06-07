@@ -1,6 +1,62 @@
 from django.test import TestCase, override_settings
 from django.urls import reverse
+
+from django.contrib.auth import authenticate
+
+from core.auth_utils import get_user_by_login_identifier
+from core.phone_utils import normalize_kenya_phone
 from .models import MyUser
+
+
+class EmailOrPhoneLoginTests(TestCase):
+    def setUp(self):
+        self.user = MyUser(
+            email='login.test@metrolinks.co.ke',
+            first_name='Login',
+            last_name='Test',
+            role='Field Agent',
+            phone='254711222333',
+        )
+        self.user.set_password('testpass123')
+        self.user.save()
+
+    def test_resolve_by_email(self):
+        self.assertEqual(
+            get_user_by_login_identifier('login.test@metrolinks.co.ke'),
+            self.user,
+        )
+
+    def test_resolve_by_local_phone(self):
+        self.assertEqual(get_user_by_login_identifier('0711222333'), self.user)
+
+    def test_authenticate_with_phone(self):
+        user = authenticate(username='0711222333', password='testpass123')
+        self.assertEqual(user, self.user)
+
+    def test_authenticate_with_email(self):
+        user = authenticate(username='login.test@metrolinks.co.ke', password='testpass123')
+        self.assertEqual(user, self.user)
+
+
+class KenyaPhoneNormalizationTests(TestCase):
+    def test_local_zero_prefix(self):
+        self.assertEqual(normalize_kenya_phone('0712345678'), '254712345678')
+
+    def test_plus_and_spaces(self):
+        self.assertEqual(normalize_kenya_phone('+254 712 345 678'), '254712345678')
+
+    def test_nine_digit_mobile(self):
+        self.assertEqual(normalize_kenya_phone('712345678'), '254712345678')
+
+    def test_already_international(self):
+        self.assertEqual(normalize_kenya_phone('254712345678'), '254712345678')
+
+    def test_double_prefix_mistake(self):
+        self.assertEqual(normalize_kenya_phone('2540712345678'), '254712345678')
+
+    def test_invalid_rejected(self):
+        self.assertEqual(normalize_kenya_phone('07'), '')
+        self.assertEqual(normalize_kenya_phone('123'), '')
 
 @override_settings(ALLOWED_HOSTS=['tickets.testserver', 'testserver', 'localhost', '127.0.0.1'])
 class UserManagementTests(TestCase):
@@ -84,6 +140,7 @@ class UserManagementTests(TestCase):
         user = MyUser.objects.get(email='newagent@metrolinks.co.ke')
         self.assertTrue(user.check_password('securepassword555'))
         self.assertEqual(user.role, 'Field Agent')
+        self.assertEqual(user.phone, '254700000000')
         self.assertFalse(user.is_staff)
 
     def test_admin_user_creation_elevated(self):

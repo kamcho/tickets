@@ -9,22 +9,27 @@
             <div style="font-size: 2.5rem; margin-bottom: 0.5rem;">🔑</div>
             <h1 style="font-size: 1.5rem; font-weight: 700; margin-bottom: 0.5rem;">Agent Login</h1>
             <p style="color: var(--text-secondary); font-size: 0.9rem;">Sign in to Metrolinks Solution Support Portal</p>
+            <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 0.5rem;">
+                For Admin, Receptionist, and Field Agent accounts only.
+            </p>
         </div>
 
         <form method="post" id="login-form-element">
             {% csrf_token %}
 
             <div class="form-group">
-                <label for="id_username" class="form-label">Email Address</label>
+                <label for="id_username" class="form-label">Phone number</label>
                 <input
-                    type="email"
+                    type="text"
                     name="username"
                     id="id_username"
                     class="form-input"
-                    placeholder="name@metrolinks.co.ke"
+                    placeholder="07XX XXX XXX or name@metrolinks.co.ke"
                     required
-                    autocomplete="email"
+                    autocomplete="username tel"
+                    inputmode="tel"
                 >
+                <span style="color: var(--text-muted); font-size: 0.8rem;">Use your mobile number; email also works.</span>
             </div>
 
             <div class="form-group" style="margin-bottom: 2rem;">
@@ -44,6 +49,10 @@
                 Sign In
             </button>
         </form>
+
+        <p style="text-align: center; margin-top: 1.25rem; font-size: 0.85rem; color: var(--text-muted);">
+            Customer? <a href="{% url 'portal_login' %}" style="color: var(--accent);">Client portal login</a>
+        </p>
     </div>
 </div>
 {% endblock %}

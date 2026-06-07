@@ -1,0 +1,6 @@
+---
+# cPanel Git™ — runs automatically when you click "Deploy HEAD" or on push deploy.
+# Edit paths if your repo root is not the same as the live app directory.
+deployment:
+  tasks:
+    - /bin/bash deploy.sh

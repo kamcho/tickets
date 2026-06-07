@@ -13,9 +13,11 @@
             <p style="color: var(--text-secondary); font-size: 0.95rem;">Manage, review, and track customer support requests for Metrolinks Solution Ltd.</p>
         {% endif %}
     </div>
-    <a href="/tickets/create/" class="btn btn-primary" id="btn-create-ticket-header">
+    {% if can_create_ticket %}
+    <a href="{% url 'ticket_create' %}" class="btn btn-primary" id="btn-create-ticket-header">
         <i data-feather="plus" style="width: 16px; height: 16px;"></i> Create New Ticket
     </a>
+    {% endif %}
 </div>
 
 <!-- Metrics Cards Section -->
@@ -157,7 +159,7 @@
                         <td style="padding: 1rem 0.75rem; color: var(--text-primary); font-weight: 500;">
                             {{ ticket.description|truncatewords:12 }}
                         </td>
-                        <td style="padding: 1rem 0.75rem; color: var(--text-secondary);">{{ ticket.category.name }}</td>
+                        <td style="padding: 1rem 0.75rem; color: var(--text-secondary);">{{ ticket.categories_display }}</td>
                         <td style="padding: 1rem 0.75rem;">
                             {% if ticket.priority == 'High' %}
                                 <span style="background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.2); color: var(--danger); font-size: 0.75rem; padding: 0.25rem 0.5rem; border-radius: 6px; font-weight: 600;">High</span>
@@ -200,7 +202,9 @@
                         <td colspan="7" style="padding: 3rem 0.75rem; text-align: center; color: var(--text-secondary);">
                             <div style="font-size: 2rem; margin-bottom: 0.5rem;">📁</div>
                             <span style="font-weight: 600;">No tickets found.</span>
-                            <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">Try adjusting your filters or create a new ticket.</p>
+                            <p style="font-size: 0.85rem; color: var(--text-muted); margin-top: 0.25rem;">
+                                {% if can_create_ticket %}Try adjusting your filters or create a new ticket.{% else %}Try adjusting your filters.{% endif %}
+                            </p>
                         </td>
                     </tr>
                 {% endfor %}

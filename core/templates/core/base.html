@@ -9,6 +9,7 @@
     
     <!-- Custom Style Sheet -->
     <link rel="stylesheet" href="{% static 'core/css/style.css' %}">
+    <link rel="stylesheet" href="{% static 'core/css/floating-buttons.css' %}?v=3">
     
     <!-- Feather Icons for modern lightweight iconography -->
     <script src="https://unpkg.com/feather-icons"></script>
@@ -38,11 +39,13 @@
                             <i data-feather="grid" style="width: 16px; height: 16px;"></i> Dashboard
                         </a>
                     </li>
+                    {% if can_create_ticket %}
                     <li class="nav-item">
-                        <a href="/tickets/create/" class="nav-link {% if 'tickets/create' in request.path %}active{% endif %}" id="nav-create-ticket">
+                        <a href="{% url 'ticket_create' %}" class="nav-link {% if 'tickets/create' in request.path %}active{% endif %}" id="nav-create-ticket">
                             <i data-feather="plus-circle" style="width: 16px; height: 16px;"></i> Open Ticket
                         </a>
                     </li>
+                    {% endif %}
                     <li class="nav-item">
                         <a href="/customers/" class="nav-link {% if 'customers' in request.path %}active{% endif %}" id="nav-customers">
                             <i data-feather="briefcase" style="width: 16px; height: 16px;"></i> Customers
@@ -83,7 +86,7 @@
                         
                         <!-- Dropdown Options -->
                         <div class="dropdown-menu" id="profile-dropdown-list">
-                            <a href="/profile/" class="dropdown-item" id="dropdown-profile">
+                            <a href="{% url 'profile' %}" class="dropdown-item" id="dropdown-profile">
                                 <i data-feather="user" style="width: 14px; height: 14px;"></i> My Profile
                             </a>
                             <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 0.25rem 0;">
@@ -102,12 +105,18 @@
                         <i data-feather="menu" class="nav-toggle-icon"></i>
                     </button>
                 {% else %}
-                    <!-- Anonymous Guest Action -->
-                    {% if not 'login' in request.path %}
-                        <a href="/login/" class="btn btn-primary" id="btn-login-redirect">
-                            <i data-feather="log-in" style="width: 16px; height: 16px;"></i> Agent Login
-                        </a>
-                    {% endif %}
+                    <div class="nav-auth-links">
+                        {% if request.path != '/login/' %}
+                            <a href="{% url 'login' %}" class="btn btn-primary" id="btn-login-redirect">
+                                <i data-feather="log-in" style="width: 16px; height: 16px;"></i> Agent Login
+                            </a>
+                        {% endif %}
+                        {% if '/portal/login' not in request.path %}
+                            <a href="{% url 'portal_login' %}" class="btn btn-secondary" id="btn-portal-login">
+                                <i data-feather="user" style="width: 16px; height: 16px;"></i> Client Portal
+                            </a>
+                        {% endif %}
+                    </div>
                 {% endif %}
             </div>
         </div>
@@ -129,7 +138,7 @@
                         {% else %}
                             <i data-feather="info"></i>
                         {% endif %}
-                        <span>{{ message }}</span>
+                        <span>{{ message|safe }}</span>
                     </div>
                 {% endfor %}
             </div>
@@ -141,12 +150,31 @@
     <!-- Global Layout Footer -->
     <footer id="main-footer">
         <div class="footer-content">
-            <span class="footer-brand">METROLINKS SOLUTION LTD</span>
-            <span class="footer-text" id="footer-copyright">&copy; {% now "Y" %} Metrolinks Solution Ltd. All rights reserved. Customer Support Portal.</span>
+            <div class="footer-contact">
+                <span class="footer-brand">METROLINKS SOLUTION LTD</span>
+                <p class="footer-contact__line">
+                    <i data-feather="phone" style="width: 14px; height: 14px; vertical-align: -2px;"></i>
+                    Office:
+                    <a href="tel:{{ company_phone_primary_tel }}">{{ company_phone_primary }}</a>
+                    <span class="footer-contact__sep">/</span>
+                    <a href="tel:{{ company_phone_secondary_tel }}">{{ company_phone_secondary }}</a>
+                </p>
+                <p class="footer-contact__line">
+                    <i data-feather="mail" style="width: 14px; height: 14px; vertical-align: -2px;"></i>
+                    <a href="mailto:{{ company_email }}">{{ company_email }}</a>
+                </p>
+            </div>
+            <span class="footer-text" id="footer-copyright">&copy; {% now "Y" %} Metrolinks Solution Ltd. All rights reserved.</span>
         </div>
     </footer>
 
 </div><!-- /.site-layout -->
+
+{% if user.is_authenticated and 'assistant' not in request.path %}
+{% include 'core/includes/floating_buttons.html' with show_assistant_fab=True %}
+{% else %}
+{% include 'core/includes/floating_buttons.html' with show_assistant_fab=False %}
+{% endif %}
 
     <!-- Initialize Icons and Scripting -->
     <script>

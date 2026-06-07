@@ -54,10 +54,49 @@ if DEBUG:
 # Leave unset in development — links use the current host (e.g. http://127.0.0.1:8000/login/).
 TICKETS_PORTAL_LOGIN_URL = os.getenv('TICKETS_PORTAL_LOGIN_URL', '').strip()
 if not TICKETS_PORTAL_LOGIN_URL and not DEBUG:
-    TICKETS_PORTAL_LOGIN_URL = 'https://tickets.metrolinkssolutionltd.co.ke/login/'
+    TICKETS_PORTAL_LOGIN_URL = 'https://tickets.metrolinkssolutionltd.co.ke/portal/login/'
+
+# Base URL for ticket links in SMS when no HTTP request (e.g. webhooks). Unset = current host in views, production default when DEBUG=False.
+SITE_BASE_URL = os.getenv('SITE_BASE_URL', '').strip()
+if not SITE_BASE_URL and not DEBUG:
+    SITE_BASE_URL = 'https://tickets.metrolinkssolutionltd.co.ke'
 
 # Max options returned in hybrid search dropdowns (customers, agents, etc.)
 HYBRID_SEARCH_RESULT_LIMIT = int(os.getenv('HYBRID_SEARCH_RESULT_LIMIT', '20'))
+
+# --- AI Assistant (web + WhatsApp) ---
+# OpenAI performs all intent understanding and tool selection (tool_choice=auto).
+# Django only executes tools returned in the API response.
+OPENAI_API_KEY = os.getenv('OPENAI_API_KEY', '').strip()
+OPENAI_MODEL = os.getenv('OPENAI_MODEL', 'gpt-4o-mini').strip()
+OPENAI_BASE_URL = os.getenv('OPENAI_BASE_URL', 'https://api.openai.com/v1').strip()
+ASSISTANT_MAX_HISTORY = int(os.getenv('ASSISTANT_MAX_HISTORY', '24'))
+
+# WhatsApp Cloud API (Meta Business)
+WHATSAPP_ACCESS_TOKEN = os.getenv('WHATSAPP_ACCESS_TOKEN', '').strip()
+WHATSAPP_PHONE_NUMBER_ID = os.getenv('WHATSAPP_PHONE_NUMBER_ID', '').strip()
+WHATSAPP_VERIFY_TOKEN = os.getenv('WHATSAPP_VERIFY_TOKEN', '').strip()
+WHATSAPP_API_VERSION = os.getenv('WHATSAPP_API_VERSION', 'v21.0').strip()
+# Display number for wa.me link (digits only, e.g. 254792929275); defaults to primary office line
+WHATSAPP_DISPLAY_NUMBER = os.getenv('WHATSAPP_DISPLAY_NUMBER', '').strip()
+
+# Company contact (footer, landing, WhatsApp FAB)
+COMPANY_PHONE_PRIMARY = os.getenv('COMPANY_PHONE_PRIMARY', '0792929275').strip()
+COMPANY_PHONE_SECONDARY = os.getenv('COMPANY_PHONE_SECONDARY', '0746464696').strip()
+COMPANY_EMAIL = os.getenv('COMPANY_EMAIL', 'metrolinkssolutionltd@gmail.com').strip()
+
+# UjumbeSMS — ticket-created notifications (https://ujumbesms.co.ke)
+UJUMBE_SMS_API_KEY = os.getenv('UJUMBE_SMS_API_KEY', '').strip()
+UJUMBE_SMS_EMAIL = os.getenv('UJUMBE_SMS_EMAIL', '').strip()
+UJUMBE_SMS_SENDER_ID = os.getenv('UJUMBE_SMS_SENDER_ID', 'UjumbeSMS').strip()
+UJUMBE_SMS_BASE_URL = os.getenv('UJUMBE_SMS_BASE_URL', 'https://ujumbesms.co.ke').strip()
+UJUMBE_SMS_ENABLED = os.getenv('UJUMBE_SMS_ENABLED', 'True').lower() in (
+    'true', '1', 't', 'y', 'yes',
+)
+# Print [TKT-SMS] lines to the runserver terminal (defaults on when DEBUG=True)
+SMS_DEBUG_PRINT = os.getenv('SMS_DEBUG_PRINT', str(DEBUG)).lower() in (
+    'true', '1', 't', 'y', 'yes',
+)
 
 
 # Application definition
@@ -102,6 +141,9 @@ TEMPLATES = [
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
                 'core.context_processors.portal_urls',
+                'core.context_processors.portal_customer',
+                'core.context_processors.staff_permissions',
+                'core.context_processors.company_contact',
             ],
         },
     },
@@ -183,6 +225,14 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
+# When DEBUG=False, run collectstatic before deploy. If staticfiles/ is missing (local
+# testing), WhiteNoise can serve from app folders via finders.
+_whitenoise_use_finders = os.getenv('WHITENOISE_USE_FINDERS', '').strip()
+if _whitenoise_use_finders:
+    WHITENOISE_USE_FINDERS = _whitenoise_use_finders.lower() in ('true', '1', 't', 'y', 'yes')
+else:
+    WHITENOISE_USE_FINDERS = DEBUG or not (STATIC_ROOT / 'core').exists()
+
 # WhiteNoise storage configuration for compression and caching
 STORAGES = {
     "default": {
@@ -194,6 +244,11 @@ STORAGES = {
 }
 
 AUTH_USER_MODEL = 'core.MyUser'
+
+AUTHENTICATION_BACKENDS = [
+    'core.auth_backends.EmailOrPhoneBackend',
+    'django.contrib.auth.backends.ModelBackend',
+]
 
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'

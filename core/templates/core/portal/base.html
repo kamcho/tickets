@@ -1,0 +1,104 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <title>{% block title %}Customer Portal - Metrolinks{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'core/css/style.css' %}">
+    <link rel="stylesheet" href="{% static 'core/css/floating-buttons.css' %}?v=3">
+    <link rel="stylesheet" href="{% static 'core/css/portal.css' %}">
+    <script src="https://unpkg.com/feather-icons"></script>
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+<div class="site-layout">
+    <nav class="navbar portal-navbar">
+        <div class="nav-container">
+            <a href="{% url 'portal_home' %}" class="nav-brand">
+                <div class="nav-brand-logo">M</div>
+                <span class="nav-brand-text">
+                    <span class="nav-brand-full">METROLINKS <span class="highlight">CLIENT</span></span>
+                    <span class="nav-brand-short">CLIENT</span>
+                </span>
+            </a>
+
+            {% if customer %}
+            <ul class="nav-menu portal-nav-menu">
+                <li class="nav-item">
+                    <a href="{% url 'portal_ticket_list' %}" class="nav-link {% if 'portal/tickets' in request.path and 'create' not in request.path %}active{% endif %}">
+                        <i data-feather="inbox" style="width: 16px; height: 16px;"></i> My Tickets
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="{% url 'portal_ticket_create' %}" class="nav-link {% if 'create' in request.path %}active{% endif %}">
+                        <i data-feather="plus-circle" style="width: 16px; height: 16px;"></i> New Ticket
+                    </a>
+                </li>
+            </ul>
+            <div class="nav-actions">
+                <span class="portal-user-chip">{{ customer.display_name }}</span>
+                <form action="{% url 'portal_logout' %}" method="post" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.8rem;">Sign out</button>
+                </form>
+            </div>
+            {% else %}
+            <div class="nav-actions nav-auth-links">
+                {% if request.path != '/login/' %}
+                    <a href="{% url 'login' %}" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.8rem;">
+                        <i data-feather="briefcase" style="width: 14px; height: 14px;"></i> Agent Login
+                    </a>
+                {% endif %}
+                {% if '/portal/login' not in request.path %}
+                    <a href="{% url 'portal_login' %}" class="btn btn-primary" style="padding: 0.5rem 1rem; font-size: 0.8rem;">
+                        <i data-feather="log-in" style="width: 14px; height: 14px;"></i> Client Sign In
+                    </a>
+                {% endif %}
+            </div>
+            {% endif %}
+        </div>
+    </nav>
+
+    <main class="main-wrapper">
+        {% if messages %}
+            <div class="messages-container portal-messages">
+                {% for message in messages %}
+                    <div class="alert-message alert-{{ message.tags|default:'info' }}" role="alert">
+                        <span>{{ message|safe }}</span>
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+        {% block content %}{% endblock %}
+    </main>
+
+    <footer id="main-footer">
+        <div class="footer-content">
+            <div class="footer-contact">
+                <span class="footer-brand">METROLINKS SOLUTION LTD</span>
+                <p class="footer-contact__line">
+                    Office:
+                    <a href="tel:{{ company_phone_primary_tel }}">{{ company_phone_primary }}</a>
+                    <span class="footer-contact__sep">/</span>
+                    <a href="tel:{{ company_phone_secondary_tel }}">{{ company_phone_secondary }}</a>
+                </p>
+                <p class="footer-contact__line">
+                    <a href="mailto:{{ company_email }}">{{ company_email }}</a>
+                </p>
+            </div>
+            <span class="footer-text">&copy; {% now "Y" %} Customer Support Portal</span>
+        </div>
+    </footer>
+
+</div>
+
+{% if 'assistant' not in request.path %}
+{% include 'core/includes/floating_buttons.html' with show_assistant_fab=True %}
+{% else %}
+{% include 'core/includes/floating_buttons.html' with show_assistant_fab=False %}
+{% endif %}
+<script>feather.replace();</script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

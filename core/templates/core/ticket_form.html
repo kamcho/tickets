@@ -3,6 +3,10 @@
 
 {% block title %}Open Ticket - Metrolinks Support{% endblock %}
 
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'core/css/categories.css' %}?v=2">
+{% endblock %}
+
 {% block content %}
 <div style="margin-bottom: 2rem;">
     <a href="/" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.85rem;" id="btn-back-dashboard">
@@ -92,23 +96,12 @@
                 </div>
             </div>
 
-            <!-- Row for Category & Priority -->
-            <div class="form-row">
-                <div class="form-group" style="margin-bottom: 0;">
-                    <label for="{{ form.category.id_for_label }}" class="form-label">Category</label>
-                    {{ form.category }}
-                    {% if form.category.errors %}
-                        <span style="color: var(--danger); font-size: 0.8rem; margin-top: 0.25rem;">{{ form.category.errors.0 }}</span>
-                    {% endif %}
-                </div>
-                
-                <div class="form-group" style="margin-bottom: 0;">
-                    <label for="{{ form.priority.id_for_label }}" class="form-label">Priority Level</label>
-                    {{ form.priority }}
-                    {% if form.priority.errors %}
-                        <span style="color: var(--danger); font-size: 0.8rem; margin-top: 0.25rem;">{{ form.priority.errors.0 }}</span>
-                    {% endif %}
-                </div>
+            <div class="form-group">
+                <label for="{{ form.priority.id_for_label }}" class="form-label">Priority Level</label>
+                {{ form.priority }}
+                {% if form.priority.errors %}
+                    <span style="color: var(--danger); font-size: 0.8rem; margin-top: 0.25rem;">{{ form.priority.errors.0 }}</span>
+                {% endif %}
             </div>
 
             {% if can_assign %}
@@ -124,14 +117,30 @@
             </div>
             {% endif %}
 
-            <!-- Description -->
             <div class="form-group">
                 <label for="{{ form.description.id_for_label }}" class="form-label">Detailed Description</label>
                 {{ form.description }}
                 {% if form.description.errors %}
                     <span style="color: var(--danger); font-size: 0.8rem; margin-top: 0.25rem;">{{ form.description.errors.0 }}</span>
                 {% endif %}
+                <span style="color: var(--text-muted); font-size: 0.8rem; margin-top: 0.25rem; display: block;">
+                    Describe the issue first — matching categories will be highlighted below.
+                </span>
             </div>
+
+            <section class="ticket-categories-section" aria-labelledby="ticket-categories-label">
+                <div class="ticket-categories-section__header">
+                    <label id="ticket-categories-label" class="form-label">{{ form.categories.label }}</label>
+                    <span class="ticket-categories-count" data-category-count aria-live="polite">0 selected</span>
+                </div>
+                <p class="ticket-categories-section__hint">{{ form.categories.help_text }}</p>
+                <div class="category-checkbox-list">
+                    {{ form.categories }}
+                </div>
+                {% if form.categories.errors %}
+                    <span style="color: var(--danger); font-size: 0.8rem; margin-top: 0.75rem; display: block;">{{ form.categories.errors.0 }}</span>
+                {% endif %}
+            </section>
 
             <!-- File Attachment -->
             <div class="form-group" style="margin-bottom: 2.5rem;">
@@ -240,4 +249,8 @@ document.addEventListener('DOMContentLoaded', function() {
     feather.replace();
 });
 </script>
+<script>
+    window.CATEGORY_SUGGEST_URL = "{% url 'category_suggest_api' %}";
+</script>
+<script src="{% static 'core/js/category-picker.js' %}?v=2"></script>
 {% endblock %}
