@@ -5,6 +5,7 @@ import uuid
 from core.models import AssistantConversation, AssistantMessage
 from core.assistant.prompts import build_system_prompt
 from core.assistant.tools import _normalize_phone, _resolve_customer
+from core.text_utils import strip_non_bmp
 
 
 def get_or_create_web_conversation(request):
@@ -41,13 +42,15 @@ def get_or_create_whatsapp_conversation(phone, profile_name=''):
 
 
 def append_message(conversation, role, content='', tool_name='', tool_call_id='', tool_calls_json=''):
+    safe_content = strip_non_bmp(content or '')
+    safe_tool_calls = strip_non_bmp(tool_calls_json or '')
     return AssistantMessage.objects.create(
         conversation=conversation,
         role=role,
-        content=content or '',
+        content=safe_content,
         tool_name=tool_name,
         tool_call_id=tool_call_id,
-        tool_calls_json=tool_calls_json or '',
+        tool_calls_json=safe_tool_calls,
     )
 
 

@@ -37,12 +37,17 @@ def _customer_email_fallback(phone, email=''):
 def _resolve_customer(customer_id=None, phone=None):
     if customer_id:
         return User.objects.filter(pk=customer_id, role='Customer').first()
+    matches = _customers_for_phone(phone)
+    return matches.first()
+
+
+def _customers_for_phone(phone):
     key = phone_match_key(phone)
     if not key:
-        return None
+        return User.objects.none()
     return User.objects.filter(role='Customer').filter(
         Q(phone__icontains=key)
-    ).first()
+    ).order_by('id')
 
 
 def _customer_payload(user):
@@ -184,12 +189,30 @@ def tool_search_customers(query='', **_kwargs):
     q = (query or '').strip()
     qs = User.objects.filter(role='Customer').order_by('first_name', 'last_name')
     if q:
-        qs = qs.filter(
+        filters = (
             Q(first_name__icontains=q)
             | Q(last_name__icontains=q)
             | Q(phone__icontains=q)
             | Q(email__icontains=q)
         )
+        parts = q.split()
+        if len(parts) >= 2:
+            filters |= Q(
+                first_name__icontains=parts[0],
+                last_name__icontains=' '.join(parts[1:]),
+            )
+            filters |= Q(
+                first_name__icontains=parts[0],
+                last_name__icontains=parts[-1],
+            )
+        key = phone_match_key(q)
+        if key and len(key) >= 9:
+            filters |= Q(phone__icontains=key)
+        for part in parts:
+            part_key = phone_match_key(part)
+            if part_key and len(part_key) >= 9:
+                filters |= Q(phone__icontains=part_key)
+        qs = qs.filter(filters)
     rows = list(qs[:10])
     return {
         'customers': [_customer_payload(c) for c in rows],
@@ -202,15 +225,31 @@ def tool_list_ticket_categories(**_kwargs):
     return {'categories': cats}
 
 
-def tool_get_customer_tickets(customer_id=None, phone=None, **_kwargs):
-    customer = _resolve_customer(customer_id=customer_id, phone=phone)
-    if not customer:
+def tool_get_customer_tickets(customer_id=None, phone=None, conversation=None, **_kwargs):
+    customers = User.objects.none()
+    if customer_id:
+        customers = User.objects.filter(pk=customer_id, role='Customer')
+    elif phone:
+        customers = _customers_for_phone(phone)
+    if not customers.exists() and conversation:
+        if conversation.customer_id:
+            customers = User.objects.filter(pk=conversation.customer_id, role='Customer')
+        elif conversation.whatsapp_phone:
+            customers = _customers_for_phone(conversation.whatsapp_phone)
+    if not customers.exists():
         return {'error': 'Customer not found.', 'tickets': []}
-    tickets = Ticket.objects.filter(customer=customer).prefetch_related(
+
+    primary = None
+    if conversation and conversation.customer_id:
+        primary = customers.filter(pk=conversation.customer_id).first()
+    if not primary:
+        primary = customers.first()
+
+    tickets = Ticket.objects.filter(customer__in=customers).prefetch_related(
         'categories',
     ).order_by('-created_at')[:15]
     return {
-        'customer': _customer_payload(customer),
+        'customer': _customer_payload(primary),
         'tickets': [
             {
                 'ticket_id': t.ticket_id,

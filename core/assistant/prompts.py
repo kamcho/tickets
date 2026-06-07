@@ -24,7 +24,9 @@ def build_system_prompt(channel, customer=None):
 
             f'\nLinked customer on this thread: {customer.display_name}, '
 
-            f'phone {customer.phone}, id {customer.id}.'
+            f'phone {customer.phone}, id {customer.id}. '
+
+            f'When listing their tickets, call get_customer_tickets with customer_id={customer.id}.'
 
         )
 
