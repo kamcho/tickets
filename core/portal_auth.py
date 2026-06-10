@@ -20,7 +20,7 @@ def get_portal_customer(request):
 
 
 def login_portal_user(request, user):
-    login(request, user)
+    login(request, user, backend='core.auth_backends.EmailOrPhoneBackend')
     request.session.pop(SESSION_CUSTOMER_KEY, None)
 
 
