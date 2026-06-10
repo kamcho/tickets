@@ -148,7 +148,7 @@ class TicketAssignment(models.Model):
     assigned_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return self.ticket_id
+        return self.ticket.ticket_id
 
 
 class TicketComments(models.Model):
