@@ -14,6 +14,7 @@ from core.assistant.tools import TOOL_SCHEMAS, execute_tool
 from core.assistant.conversation import append_message, build_openai_messages
 from core.assistant.direct import try_direct_reply
 from core.assistant.fallback import compose_fallback_reply
+from core.assistant.intent import IntentType, classify
 from core.assistant.formatting import format_assistant_reply
 from core.assistant.progress import (
     STEP_COMPOSE,
@@ -57,7 +58,7 @@ def _openai_configured():
     return bool(getattr(settings, 'OPENAI_API_KEY', ''))
 
 
-def _call_openai(messages, max_retries=3):
+def _call_openai(messages, max_retries=3, tool_choice='auto'):
     api_key = settings.OPENAI_API_KEY
     model = getattr(settings, 'OPENAI_MODEL', 'gpt-4o-mini')
     base_url = getattr(settings, 'OPENAI_BASE_URL', 'https://api.openai.com/v1').rstrip('/')
@@ -66,7 +67,7 @@ def _call_openai(messages, max_retries=3):
         'model': model,
         'messages': messages,
         'tools': TOOL_SCHEMAS,
-        'tool_choice': 'auto',
+        'tool_choice': tool_choice,
         'parallel_tool_calls': True,
         'temperature': 0.3,
     }
@@ -167,9 +168,18 @@ def iter_assistant_turn(conversation, user_text, channel='web', selected_categor
     append_message(conversation, 'user', user_text)
     conversation.save(update_fields=['updated_at'])
 
-    direct_reply, active_ticket_id = try_direct_reply(
-        conversation, user_text, request=request,
-    )
+    # ── Intent classification ─────────────────────────────────────────────────
+    intent = classify(user_text, conversation=conversation)
+
+    # ── Deterministic reply (no OpenAI needed) ────────────────────────────────
+    try:
+        direct_reply, active_ticket_id = try_direct_reply(
+            conversation, user_text, request=request,
+        )
+    except Exception:
+        logger.exception('try_direct_reply raised unexpectedly')
+        direct_reply, active_ticket_id = None, None
+
     if direct_reply:
         think_id, think_label = STEP_THINKING
         yield progress_event(think_id, think_label, 'active')
@@ -192,6 +202,17 @@ def iter_assistant_turn(conversation, user_text, channel='web', selected_categor
         yield _finish_turn(conversation, reply, channel, active_ticket_id, request=request)
         return
 
+    # ── OpenAI inference ──────────────────────────────────────────────────────
+    # For CREATE_TICKET intent, force the model to call create_support_ticket
+    # rather than guessing or asking the user for permission.
+    if intent.type == IntentType.CREATE_TICKET:
+        openai_tool_choice = {
+            'type': 'function',
+            'function': {'name': 'create_support_ticket'},
+        }
+    else:
+        openai_tool_choice = 'auto'
+
     messages = build_openai_messages(conversation, channel)
     think_id, think_label = STEP_THINKING
     round_tool_results = []
@@ -200,7 +221,10 @@ def iter_assistant_turn(conversation, user_text, channel='web', selected_categor
         yield progress_event(think_id, think_label, 'active')
 
         try:
-            data = _call_openai(messages)
+            data = _call_openai(messages, tool_choice=openai_tool_choice)
+            # After the first round, revert to auto so follow-up rounds
+            # can pick the right tool or produce a final text reply.
+            openai_tool_choice = 'auto'
         except httpx.HTTPError:
             logger.exception('OpenAI API error')
             yield progress_event(think_id, think_label, 'error')

@@ -57,6 +57,20 @@ def _agent_display_name(agent):
 
 
 
+def _first_name(user, fallback='there'):
+
+    name = (getattr(user, 'first_name', None) or '').strip()
+
+    if name and name != '-':
+
+        return name
+
+    return fallback
+
+
+
+
+
 def _sms_to_user(user, message, context_label, source):
 
     sms_debug(
@@ -141,41 +155,31 @@ def _sms_to_user(user, message, context_label, source):
 
 
 
-def build_ticket_created_sms(ticket):
-
-    customer = ticket.customer
-
-    name = customer.display_name if customer else 'Customer'
-
-    categories = ticket.categories_display
-
-    url = ticket_detail_url(ticket.ticket_id, for_customer=True)
-    return (
-        f'Hello {name}, your Metrolinks support ticket {ticket.ticket_id} has been received. '
-        f'Categories: {categories}. Priority: {ticket.priority}. Status: {ticket.status}. '
-        f'View your ticket: {url} '
-        f'Our technicians will follow up shortly. Thank you.'
-    )
-
-
-
-
-
 def build_ticket_assigned_customer_sms(ticket, agent):
 
     customer = ticket.customer
 
-    name = customer.display_name if customer else 'Customer'
+    customer_first = _first_name(customer, fallback='there')
 
-    agent_name = _agent_display_name(agent)
+    agent_first = _first_name(agent, fallback='our team')
 
-    url = ticket_detail_url(ticket.ticket_id, for_customer=True)
-    return (
-        f'Hello {name}, your ticket {ticket.ticket_id} has been assigned to '
-        f'{agent_name}. Priority: {ticket.priority}. Status: {ticket.status}. '
-        f'View your ticket: {url} '
-        f'Our team is working on your request.'
+    agent_phone = (getattr(agent, 'phone', None) or '').strip()
+
+    message = (
+        f'Hi {customer_first}, '
+        f"We've received your issue, and our agent {agent_first} is here to help. "
     )
+
+    if agent_phone:
+
+        message += f'You can reach them directly at {agent_phone}. '
+
+    message += (
+        "We're working on resolving your issue as quickly as possible. "
+        'Thank you for your patience and understanding.'
+    )
+
+    return message
 
 
 
@@ -206,55 +210,9 @@ def build_ticket_assigned_agent_sms(ticket, agent):
 
 def notify_ticket_created(ticket, source='unknown'):
 
-    """SMS the customer when a new ticket is logged."""
+    """Hook when a ticket is logged. Customer SMS is sent on agent assignment."""
 
     sms_debug(source, 'notify_ticket_created_start', ticket_id=ticket.ticket_id)
-
-    sms_debug_ujumbe_config(source)
-
-    if not ujumbe_configured():
-
-        sms_debug(source, 'notify_ticket_created_skip', reason='ujumbe_not_configured')
-
-        return
-
-    ticket = _ticket_for_sms(ticket)
-
-    if not ticket.customer:
-
-        sms_debug(source, 'notify_ticket_created_skip', reason='no_customer', ticket_id=ticket.ticket_id)
-
-        logger.info('Ticket %s: no customer for created SMS.', ticket.ticket_id)
-
-        return
-
-    sms_debug(
-
-        source,
-
-        'notify_ticket_created_customer',
-
-        ticket_id=ticket.ticket_id,
-
-        customer_id=ticket.customer_id,
-
-        customer_email=ticket.customer.email,
-
-        customer_phone=ticket.customer.phone,
-
-    )
-
-    _sms_to_user(
-
-        ticket.customer,
-
-        build_ticket_created_sms(ticket),
-
-        f'Ticket {ticket.ticket_id} created',
-
-        source,
-
-    )
 
     sms_debug(source, 'notify_ticket_created_end', ticket_id=ticket.ticket_id)
 
