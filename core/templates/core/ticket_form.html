@@ -61,21 +61,12 @@
                         {% endif %}
                     </div>
 
-                    <div class="form-row">
-                        <div class="form-group" style="margin-bottom: 1rem;">
-                            <label for="{{ customer_form.email.id_for_label }}" class="form-label">Email Address</label>
-                            {{ customer_form.email }}
-                            {% if customer_form.email.errors %}
-                                <span style="color: var(--danger); font-size: 0.8rem; margin-top: 0.25rem; display: block;">{{ customer_form.email.errors.0 }}</span>
-                            {% endif %}
-                        </div>
-                        <div class="form-group" style="margin-bottom: 1rem;">
-                            <label for="{{ customer_form.phone.id_for_label }}" class="form-label">Phone Number</label>
-                            {{ customer_form.phone }}
-                            {% if customer_form.phone.errors %}
-                                <span style="color: var(--danger); font-size: 0.8rem; margin-top: 0.25rem; display: block;">{{ customer_form.phone.errors.0 }}</span>
-                            {% endif %}
-                        </div>
+                    <div class="form-group" style="margin-bottom: 1rem;">
+                        <label for="{{ customer_form.phone.id_for_label }}" class="form-label">Phone Number</label>
+                        {{ customer_form.phone }}
+                        {% if customer_form.phone.errors %}
+                            <span style="color: var(--danger); font-size: 0.8rem; margin-top: 0.25rem; display: block;">{{ customer_form.phone.errors.0 }}</span>
+                        {% endif %}
                     </div>
 
                     <div class="form-group" style="margin-bottom: 1rem;">
