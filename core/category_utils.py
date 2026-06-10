@@ -39,19 +39,12 @@ COMPLAINT_KEYWORDS = (
 
 def conversation_needs_category_picker(conversation, user_text):
     """
-    Show the in-chat category picker only once at the start of a complaint.
-
-    If the user already sent messages (e.g. more details after the bot asked),
-    skip the picker and let the AI use stored or suggested categories.
+    Show the in-chat category picker whenever the user appears to be reporting
+    a complaint and no category has been chosen for this conversation yet.
     """
     if conversation.selected_category_ids:
         return False
-    if not looks_like_complaint(user_text):
-        return False
-    prior_user_msgs = conversation.messages.filter(
-        role='user',
-    ).count()
-    return prior_user_msgs == 0
+    return looks_like_complaint(user_text)
 
 
 def looks_like_complaint(text):

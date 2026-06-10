@@ -467,15 +467,17 @@ def tool_create_support_ticket(
         category_ids=selected_category_ids,
     )
     if not categories:
-        categories = resolve_categories(
-            category_ids=suggest_category_ids(description),
-        )
-    if not categories:
+        # Do NOT auto-suggest. The user must choose. Return the available list so
+        # the model can present it and ask the user to pick.
+        available = list(TicketCategory.objects.order_by('name').values('id', 'name'))
         return {
-            'error': (
-                'At least one complaint category is required. '
-                'Use list_ticket_categories or pass category_names that match the issue.'
+            'error': 'category_required',
+            'message': (
+                'No category was selected. Present the available_categories list to the user '
+                'and ask them to choose the one that best fits their issue. '
+                'Do not guess or pick on their behalf.'
             ),
+            'available_categories': available,
         }
 
     customer = _resolve_customer(
