@@ -12,9 +12,7 @@ from django.conf import settings
 
 from core.assistant.tools import TOOL_SCHEMAS, execute_tool
 from core.assistant.conversation import append_message, build_openai_messages
-from core.assistant.direct import try_direct_reply
 from core.assistant.fallback import compose_fallback_reply
-from core.assistant.intent import IntentType, classify
 from core.assistant.formatting import format_assistant_reply
 from core.assistant.progress import (
     STEP_COMPOSE,
@@ -37,6 +35,7 @@ MAX_TOOL_ROUNDS = 6
 SIDEBAR_REFRESH_TOOLS = frozenset({
     'create_support_ticket',
     'get_customer_tickets',
+    'get_user_context',
     'lookup_ticket',
     'create_or_get_customer',
 })
@@ -168,29 +167,6 @@ def iter_assistant_turn(conversation, user_text, channel='web', selected_categor
     append_message(conversation, 'user', user_text)
     conversation.save(update_fields=['updated_at'])
 
-    # ── Intent classification ─────────────────────────────────────────────────
-    intent = classify(user_text, conversation=conversation)
-
-    # ── Deterministic reply (no OpenAI needed) ────────────────────────────────
-    try:
-        direct_reply, active_ticket_id = try_direct_reply(
-            conversation, user_text, request=request,
-        )
-    except Exception:
-        logger.exception('try_direct_reply raised unexpectedly')
-        direct_reply, active_ticket_id = None, None
-
-    if direct_reply:
-        think_id, think_label = STEP_THINKING
-        yield progress_event(think_id, think_label, 'active')
-        yield progress_event(think_id, think_label, 'done')
-        compose_id, compose_label = STEP_COMPOSE
-        yield progress_event(compose_id, compose_label, 'active')
-        reply = _persist_and_return(conversation, direct_reply)
-        yield progress_event(compose_id, compose_label, 'done')
-        yield _finish_turn(conversation, reply, channel, active_ticket_id, request=request)
-        return
-
     if not _openai_configured():
         reply = (
             'The support assistant is not fully configured yet (missing OPENAI_API_KEY). '
@@ -199,32 +175,20 @@ def iter_assistant_turn(conversation, user_text, channel='web', selected_categor
         )
         yield progress_event(STEP_THINKING[0], STEP_THINKING[1], 'error')
         _persist_and_return(conversation, reply)
-        yield _finish_turn(conversation, reply, channel, active_ticket_id, request=request)
+        yield _finish_turn(conversation, reply, channel, None, request=request)
         return
 
-    # ── OpenAI inference ──────────────────────────────────────────────────────
-    # For CREATE_TICKET intent, force the model to call create_support_ticket
-    # rather than guessing or asking the user for permission.
-    if intent.type == IntentType.CREATE_TICKET:
-        openai_tool_choice = {
-            'type': 'function',
-            'function': {'name': 'create_support_ticket'},
-        }
-    else:
-        openai_tool_choice = 'auto'
-
+    # ── OpenAI inference — always, for every message ──────────────────────────
     messages = build_openai_messages(conversation, channel)
     think_id, think_label = STEP_THINKING
     round_tool_results = []
+    active_ticket_id = None
 
     for _round in range(MAX_TOOL_ROUNDS):
         yield progress_event(think_id, think_label, 'active')
 
         try:
-            data = _call_openai(messages, tool_choice=openai_tool_choice)
-            # After the first round, revert to auto so follow-up rounds
-            # can pick the right tool or produce a final text reply.
-            openai_tool_choice = 'auto'
+            data = _call_openai(messages, tool_choice='auto')
         except httpx.HTTPError:
             logger.exception('OpenAI API error')
             yield progress_event(think_id, think_label, 'error')

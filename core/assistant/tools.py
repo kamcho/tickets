@@ -70,6 +70,26 @@ TOOL_SCHEMAS = [
     {
         'type': 'function',
         'function': {
+            'name': 'get_user_context',
+            'description': (
+                'Fetch all data available for the current user: their profile, every ticket they '
+                'have ever raised (with status, priority, categories, description), and all '
+                'available ticket categories. Call this whenever you are unsure what the user is '
+                'asking about, need full ticket history to answer a question, or want to give a '
+                'personalised response without asking the user to repeat themselves.'
+            ),
+            'parameters': {
+                'type': 'object',
+                'properties': {
+                    'customer_id': {'type': 'integer', 'description': 'Customer id if known'},
+                    'phone': {'type': 'string', 'description': 'Customer phone if id unknown'},
+                },
+            },
+        },
+    },
+    {
+        'type': 'function',
+        'function': {
             'name': 'search_customers',
             'description': (
                 'Use when the user mentions a name/phone/email and you need to find their customer record '
@@ -186,6 +206,44 @@ TOOL_SCHEMAS = [
         },
     },
 ]
+
+
+def tool_get_user_context(customer_id=None, phone=None, conversation=None, request=None, **_kwargs):
+    """Return the full customer profile + all their tickets + all categories."""
+    customers, tickets = tickets_for_contact(
+        phone=phone,
+        customer_id=customer_id,
+        conversation=conversation,
+    )
+
+    # If still nothing, try the conversation's linked customer
+    if not customers.exists() and not tickets.exists() and conversation and conversation.customer_id:
+        customers, tickets = tickets_for_contact(customer_id=conversation.customer_id)
+
+    primary = customers.first()
+    if not primary and tickets.exists() and tickets.first().customer_id:
+        primary = tickets.first().customer
+
+    ticket_rows = list(tickets.prefetch_related('categories').select_related('customer'))
+    categories = list(TicketCategory.objects.order_by('name').values('id', 'name'))
+
+    return {
+        'customer': _customer_payload(primary) if primary else None,
+        'tickets': [
+            {
+                'ticket_id': t.ticket_id,
+                'status': t.status,
+                'priority': t.priority,
+                'categories': t.categories_display,
+                'description': t.description,
+                'created_at': t.created_at.isoformat(),
+                'detail_url': ticket_detail_url(t.ticket_id, request=request, for_customer=True),
+            }
+            for t in ticket_rows
+        ],
+        'ticket_count': len(ticket_rows),
+        'available_categories': categories,
+    }
 
 
 def tool_search_customers(query='', **_kwargs):
@@ -450,6 +508,7 @@ def tool_create_support_ticket(
 
 
 TOOL_HANDLERS = {
+    'get_user_context': tool_get_user_context,
     'search_customers': tool_search_customers,
     'list_ticket_categories': tool_list_ticket_categories,
     'get_customer_tickets': tool_get_customer_tickets,
