@@ -160,7 +160,7 @@ class TicketComments(models.Model):
     commented_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return self.ticket_id
+        return self.ticket.ticket_id
 
     @property
     def author_name(self):
@@ -181,7 +181,7 @@ class TicketAttachments(models.Model):
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return self.ticket_id
+        return self.ticket.ticket_id
 
 
 class AssistantConversation(models.Model):
