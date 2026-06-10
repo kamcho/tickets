@@ -25,12 +25,9 @@
                 {{ register_form.contact_name }}
             </div>
             <div class="form-group">
-                <label class="form-label">Email</label>
-                {{ register_form.email }}
-            </div>
-            <div class="form-group">
-                <label class="form-label">Phone</label>
+                <label class="form-label">Phone number</label>
                 {{ register_form.phone }}
+                <span style="color: var(--text-muted); font-size: 0.8rem;">Format: 0712 345 678 or 254 712 345 678</span>
             </div>
             <div class="form-group">
                 <label class="form-label">Password</label>
@@ -48,15 +45,12 @@
             {% csrf_token %}
             <input type="hidden" name="action" value="activate">
             <p style="font-size: 0.85rem; color: var(--text-secondary); margin-bottom: 1rem;">
-                Already in our system? Confirm your email and phone, then choose a password.
+                Already in our system? Enter your phone number and choose a new password.
             </p>
             <div class="form-group">
-                <label class="form-label">Email</label>
-                {{ activate_form.email }}
-            </div>
-            <div class="form-group">
-                <label class="form-label">Phone</label>
+                <label class="form-label">Phone number</label>
                 {{ activate_form.phone }}
+                <span style="color: var(--text-muted); font-size: 0.8rem;">Format: 0712 345 678 or 254 712 345 678</span>
             </div>
             <div class="form-group">
                 <label class="form-label">New password</label>
@@ -92,9 +86,9 @@
             {% csrf_token %}
             <input type="hidden" name="action" value="login">
             <div class="form-group">
-                <label class="form-label">{{ login_form.phone_or_email.label }}</label>
-                {{ login_form.phone_or_email }}
-                <span style="color: var(--text-muted); font-size: 0.8rem;">Use phone or email. Default password is your phone (e.g. 0712… or 254712…).</span>
+                <label class="form-label">Phone number</label>
+                {{ login_form.phone }}
+                <span style="color: var(--text-muted); font-size: 0.8rem;">Enter as 0712 345 678, 254 712 345 678, or +254 712 345 678. Default password is your phone number.</span>
             </div>
             <div class="form-group">
                 <label class="form-label">Password</label>

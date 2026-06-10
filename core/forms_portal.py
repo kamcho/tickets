@@ -10,23 +10,20 @@ from core.models import Ticket, TicketCategory
 
 class CustomerPortalLoginForm(forms.Form):
 
-    phone_or_email = forms.CharField(
-        label='Phone or email',
+    phone = forms.CharField(
+        label='Phone number',
         widget=forms.TextInput(attrs={
             'class': 'form-input',
-            'placeholder': '07XX XXX XXX or your@email.com',
-            'autocomplete': 'username',
+            'placeholder': '07XX XXX XXX or 254 7XX XXX XXX',
+            'autocomplete': 'tel',
+            'inputmode': 'tel',
         }),
     )
 
     password = forms.CharField(widget=forms.PasswordInput(attrs={
-
         'class': 'form-input',
-
         'placeholder': 'Your password',
-
         'autocomplete': 'current-password',
-
     }))
 
 
@@ -36,47 +33,27 @@ class CustomerPortalLoginForm(forms.Form):
 class CustomerPortalRegisterForm(forms.Form):
 
     contact_name = forms.CharField(max_length=100, widget=forms.TextInput(attrs={
-
         'class': 'form-input',
-
         'placeholder': 'Full name',
-
     }))
 
-    email = forms.EmailField(widget=forms.EmailInput(attrs={
-
+    phone = forms.CharField(max_length=20, widget=forms.TextInput(attrs={
         'class': 'form-input',
-
-        'placeholder': 'your@email.com',
-
-    }))
-
-    phone = forms.CharField(max_length=15, widget=forms.TextInput(attrs={
-
-        'class': 'form-input',
-
-        'placeholder': '+254 7XX XXX XXX',
-
+        'placeholder': '07XX XXX XXX or 254 7XX XXX XXX',
+        'inputmode': 'tel',
+        'autocomplete': 'tel',
     }))
 
     password = forms.CharField(widget=forms.PasswordInput(attrs={
-
         'class': 'form-input',
-
         'placeholder': 'Create a password',
-
         'autocomplete': 'new-password',
-
     }))
 
     confirm_password = forms.CharField(widget=forms.PasswordInput(attrs={
-
         'class': 'form-input',
-
         'placeholder': 'Confirm password',
-
         'autocomplete': 'new-password',
-
     }))
 
 
@@ -108,11 +85,14 @@ class CustomerPortalRegisterForm(forms.Form):
 
 class CustomerPortalActivateForm(forms.Form):
 
-    """First-time setup for existing customers (email + phone on file)."""
+    """First-time password setup for existing customers (staff-created accounts)."""
 
-    email = forms.EmailField(widget=forms.EmailInput(attrs={'class': 'form-input'}))
-
-    phone = forms.CharField(widget=forms.TextInput(attrs={'class': 'form-input'}))
+    phone = forms.CharField(widget=forms.TextInput(attrs={
+        'class': 'form-input',
+        'placeholder': '07XX XXX XXX or 254 7XX XXX XXX',
+        'inputmode': 'tel',
+        'autocomplete': 'tel',
+    }))
 
     password = forms.CharField(widget=forms.PasswordInput(attrs={
 

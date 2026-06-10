@@ -4,7 +4,7 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.http import require_POST
 
-from core.customer_accounts import create_customer_user, find_customer_by_email_phone
+from core.customer_accounts import create_customer_user, find_customer_by_email_phone, find_customer_by_phone
 from core.forms_portal import (
     CustomerPortalActivateForm,
     CustomerPortalLoginForm,
@@ -58,10 +58,10 @@ def portal_login(request):
                 if result:
                     ticket, customer_user = result
                     if customer_user.has_usable_password():
-                        messages.info(
-                            request,
-                            'Please sign in with your email and password for full access.',
-                        )
+                    messages.info(
+                        request,
+                        'Please sign in with your phone number and password for full access.',
+                    )
                         return redirect('portal_login')
                     login_portal_user(request, customer_user)
                     messages.success(request, 'Welcome — here is your ticket.')
@@ -75,7 +75,6 @@ def portal_login(request):
                 try:
                     user = create_customer_user(
                         contact_name=register_form.cleaned_data['contact_name'],
-                        email=register_form.cleaned_data['email'],
                         phone=register_form.cleaned_data['phone'],
                         password=register_form.cleaned_data['password'],
                     )
@@ -89,24 +88,21 @@ def portal_login(request):
             activate_form = CustomerPortalActivateForm(request.POST)
             mode = 'activate'
             if activate_form.is_valid():
-                user = find_customer_by_email_phone(
-                    activate_form.cleaned_data['email'],
-                    activate_form.cleaned_data['phone'],
-                )
+                user = find_customer_by_phone(activate_form.cleaned_data['phone'])
                 if user:
                     user.set_password(activate_form.cleaned_data['password'])
                     user.save(update_fields=['password'])
                     login_portal_user(request, user)
                     messages.success(request, 'Password set. You are now signed in.')
                     return redirect('portal_ticket_list')
-                messages.error(request, 'No account found with that email and phone.')
+                messages.error(request, 'No account found for that phone number.')
 
         else:
             login_form = CustomerPortalLoginForm(request.POST)
             mode = 'login'
             if login_form.is_valid():
                 user, reason = authenticate_customer(
-                    login_form.cleaned_data['phone_or_email'],
+                    login_form.cleaned_data['phone'],
                     login_form.cleaned_data['password'],
                 )
                 if user:
@@ -122,13 +118,13 @@ def portal_login(request):
                 elif reason == 'no_password':
                     messages.error(
                         request,
-                        'No portal password yet. Use the Activate tab with your email and phone.',
+                        'No portal password set yet. Use the Activate tab to set one using your phone number.',
                     )
                 else:
                     messages.error(
                         request,
-                        'Invalid phone, email, or password. '
-                        'If staff created your account, try your phone number (07…) as the password.',
+                        'Invalid phone number or password. '
+                        'If staff created your account, your default password is your phone number (e.g. 0712345678).',
                     )
 
     return render(request, 'core/portal/login.html', {
