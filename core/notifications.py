@@ -212,13 +212,29 @@ def build_ticket_created_customer_sms(ticket):
 
     customer = ticket.customer
 
-    name = _first_name(customer, fallback='there')
+    name = _first_name(customer, fallback='Customer').upper()
 
     return (
-        f'Hi {name}, your complaint has been received. '
-        f'Ticket {ticket.ticket_id} has been created and is being handled. '
-        f'Thank you for your patience and understanding.'
+        f'Dear {name}, You have successfully opted into Metrolinks Solutions. '
+        f'We appreciate your trust in choosing us for our services. '
+        f'Your Ticket {ticket.ticket_id} has been created and is being handled.'
     )
+
+
+def build_ticket_created_with_agent_sms(ticket, agent):
+    """Combined creation + assignment message — sent when agent is assigned at ticket creation time."""
+    customer = ticket.customer
+    name = _first_name(customer, fallback='there')
+    agent_first = _first_name(agent, fallback='our team')
+    agent_phone = (getattr(agent, 'phone', None) or '').strip()
+
+    message = (
+        f"Hi {name.upper()}, We've received your Ticket, and our agent {agent_first.upper()} is here to help. "
+    )
+    if agent_phone:
+        message += f'You can reach them directly at {agent_phone}. '
+    message += "We're working on resolving your issue as quickly as possible. Thank you for your patience and understanding."
+    return message
 
 
 def build_ticket_created_receptionist_sms(ticket):
@@ -238,68 +254,65 @@ def build_ticket_created_receptionist_sms(ticket):
     )
 
 
-def notify_ticket_created(ticket, source='unknown'):
+def notify_ticket_created(ticket, source='unknown', agent=None):
+    """SMS customer and optionally the assigned agent when a ticket is logged.
 
-    """SMS customer (complaint received) and all receptionists when a ticket is logged."""
+    If *agent* is provided the customer receives one combined 'received + assigned'
+    message and the agent receives their assignment SMS.  No second message is sent
+    later by notify_ticket_assigned for the same creation event.
 
-    sms_debug(source, 'notify_ticket_created_start', ticket_id=ticket.ticket_id)
+    If *agent* is None the customer receives the plain 'received' message and will
+    get a separate SMS later if/when an agent is assigned.
+    """
+
+    sms_debug(source, 'notify_ticket_created_start', ticket_id=ticket.ticket_id,
+              with_agent=bool(agent))
 
     sms_debug_ujumbe_config(source)
 
     if not ujumbe_configured():
-
         sms_debug(source, 'notify_ticket_created_skip', reason='ujumbe_not_configured')
-
         sms_debug(source, 'notify_ticket_created_end', ticket_id=ticket.ticket_id)
-
         return
 
     ticket = _ticket_for_sms(ticket)
 
     # --- SMS customer ---
     if ticket.customer:
+        if agent:
+            # Combined creation + assignment message — one SMS covers both events
+            customer_msg = build_ticket_created_with_agent_sms(ticket, agent)
+            label = f'Ticket {ticket.ticket_id} created+assigned (customer)'
+        else:
+            customer_msg = build_ticket_created_customer_sms(ticket)
+            label = f'Ticket {ticket.ticket_id} created (customer)'
 
-        _sms_to_user(
-
-            ticket.customer,
-
-            build_ticket_created_customer_sms(ticket),
-
-            f'Ticket {ticket.ticket_id} created (customer)',
-
-            source,
-
-        )
-
+        _sms_to_user(ticket.customer, customer_msg, label, source)
     else:
-
         sms_debug(source, 'notify_ticket_created_skip_customer', reason='no_customer')
+
+    # --- SMS assigned agent (only when agent assigned at creation time) ---
+    if agent:
+        _sms_to_user(
+            agent,
+            build_ticket_assigned_agent_sms(ticket, agent),
+            f'Ticket {ticket.ticket_id} created+assigned (agent)',
+            source,
+        )
 
     # --- SMS all receptionists (AI-created tickets only) ---
     if source == 'assistant':
-
         User = get_user_model()
-
         receptionists = User.objects.filter(role='Receptionist').exclude(phone='')
-
         receptionist_msg = build_ticket_created_receptionist_sms(ticket)
-
         for receptionist in receptionists:
-
             _sms_to_user(
-
                 receptionist,
-
                 receptionist_msg,
-
                 f'Ticket {ticket.ticket_id} created (receptionist)',
-
                 source,
-
             )
-
     else:
-
         sms_debug(source, 'notify_ticket_created_skip_receptionist', reason='not_from_assistant')
 
     sms_debug(source, 'notify_ticket_created_end', ticket_id=ticket.ticket_id)
@@ -308,9 +321,13 @@ def notify_ticket_created(ticket, source='unknown'):
 
 
 
-def notify_ticket_assigned(ticket, agent, source='unknown'):
+def notify_ticket_assigned(ticket, agent, source='unknown', notify_customer=True):
 
-    """SMS customer and assigned field agent."""
+    """SMS customer and assigned field agent.
+
+    Set notify_customer=False when the customer was already notified via the
+    combined creation+assignment message in notify_ticket_created.
+    """
 
     sms_debug(
 
@@ -344,23 +361,19 @@ def notify_ticket_assigned(ticket, agent, source='unknown'):
 
     ticket = _ticket_for_sms(ticket)
 
-    if ticket.customer:
-
-        _sms_to_user(
-
-            ticket.customer,
-
-            build_ticket_assigned_customer_sms(ticket, agent),
-
-            f'Ticket {ticket.ticket_id} assigned (customer)',
-
-            source,
-
-        )
-
+    if notify_customer:
+        if ticket.customer:
+            _sms_to_user(
+                ticket.customer,
+                build_ticket_assigned_customer_sms(ticket, agent),
+                f'Ticket {ticket.ticket_id} assigned (customer)',
+                source,
+            )
+        else:
+            sms_debug(source, 'notify_ticket_assigned_skip_customer', reason='no_customer')
     else:
-
-        sms_debug(source, 'notify_ticket_assigned_skip_customer', reason='no_customer')
+        sms_debug(source, 'notify_ticket_assigned_skip_customer',
+                  reason='already_notified_at_creation')
 
     _sms_to_user(
 
@@ -380,7 +393,7 @@ def notify_ticket_assigned(ticket, agent, source='unknown'):
 
 
 
-def assign_ticket_to_agent(ticket, agent, source='unknown'):
+def assign_ticket_to_agent(ticket, agent, source='unknown', notify_customer=True):
 
     """Replace assignment for a ticket and notify customer + agent."""
 
@@ -404,7 +417,7 @@ def assign_ticket_to_agent(ticket, agent, source='unknown'):
 
     sms_debug(source, 'assign_ticket_to_agent_db_saved', ticket_id=ticket.ticket_id)
 
-    notify_ticket_assigned(ticket, agent, source=source)
+    notify_ticket_assigned(ticket, agent, source=source, notify_customer=notify_customer)
 
     sms_debug(source, 'assign_ticket_to_agent_end', ticket_id=ticket.ticket_id)
 

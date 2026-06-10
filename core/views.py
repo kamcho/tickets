@@ -211,8 +211,8 @@ def _save_ticket_with_attachment(request, ticket, form=None, sms_source='ticket_
             attachment=attachment_file
         )
         sms_debug(sms_source, 'attachment_saved', ticket_id=ticket.ticket_id)
-    from core.notifications import notify_ticket_created
-    notify_ticket_created(ticket, source=sms_source)
+    # NOTE: notification is NOT sent here — the calling view sends it after
+    # resolving the agent assignment so we can merge both into one SMS.
     return ticket
 
 
@@ -236,7 +236,8 @@ def _require_admin(user):
         raise PermissionDenied
 
 
-def _apply_ticket_assignment(ticket, form, user, sms_source='ticket_create_page'):
+def _apply_ticket_assignment(ticket, form, user, sms_source='ticket_create_page',
+                             at_creation=False):
     from core.sms_debug import sms_debug
 
     if not _user_can_assign_tickets(user):
@@ -254,7 +255,10 @@ def _apply_ticket_assignment(ticket, form, user, sms_source='ticket_create_page'
         agent_email=assigned_to.email,
     )
     from core.notifications import assign_ticket_to_agent
-    assign_ticket_to_agent(ticket, assigned_to, source=sms_source)
+    # When at_creation=True the customer SMS is handled by notify_ticket_created
+    # (combined message), so we suppress it here to avoid a duplicate.
+    assign_ticket_to_agent(ticket, assigned_to, source=sms_source,
+                           notify_customer=not at_creation)
     return assigned_to
 
 
@@ -380,7 +384,10 @@ def ticket_create_view(request):
                 )
                 assigned_to = _apply_ticket_assignment(
                     ticket, form, request.user, sms_source='ticket_create_page',
+                    at_creation=True,
                 )
+                from core.notifications import notify_ticket_created
+                notify_ticket_created(ticket, source='ticket_create_page', agent=assigned_to)
                 messages.success(
                     request,
                     ticket_created_flash_message(
@@ -397,7 +404,10 @@ def ticket_create_view(request):
             )
             assigned_to = _apply_ticket_assignment(
                 ticket, form, request.user, sms_source='ticket_create_page',
+                at_creation=True,
             )
+            from core.notifications import notify_ticket_created
+            notify_ticket_created(ticket, source='ticket_create_page', agent=assigned_to)
             messages.success(
                 request,
                 ticket_created_flash_message(ticket, request, assigned_to=assigned_to),
