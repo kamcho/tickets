@@ -1,11 +1,14 @@
 """Bulk customer import from CSV — admin/receptionist only."""
 import csv
 import io
+import json
 
-from django.contrib import messages
+from django.contrib.auth import get_user_model
 from django.contrib.auth.decorators import login_required
 from django.core.exceptions import PermissionDenied
-from django.shortcuts import render, redirect
+from django.http import StreamingHttpResponse
+from django.shortcuts import render
+from django.views.decorators.csrf import csrf_exempt
 
 from core.customer_accounts import (
     create_customer_user,
@@ -19,116 +22,86 @@ def _require_import_permission(user):
         raise PermissionDenied
 
 
-
 # Column name aliases accepted in the CSV header (case-insensitive)
-_NAME_ALIASES    = {'name', 'full name', 'full_name', 'contact name', 'contact_name', 'fullname', 'customer name', 'customer_name'}
-_PHONE_ALIASES   = {'phone', 'phone number', 'phone_number', 'mobile', 'mobile number', 'mobile_number', 'tel'}
+_NAME_ALIASES     = {'name', 'full name', 'full_name', 'contact name', 'contact_name', 'fullname', 'customer name', 'customer_name'}
+_PHONE_ALIASES    = {'phone', 'phone number', 'phone_number', 'mobile', 'mobile number', 'mobile_number', 'tel'}
 _LOCATION_ALIASES = {'location', 'address', 'physical address', 'physical_address', 'map', 'google maps'}
-_EMAIL_ALIASES   = {'email', 'email address', 'email_address', 'e-mail'}
+_EMAIL_ALIASES    = {'email', 'email address', 'email_address', 'e-mail'}
 
 
 def _find_col(header_row, aliases):
-    """Return the actual column name from header_row that matches one of the aliases."""
     for col in header_row:
         if col.strip().lower() in aliases:
             return col
     return None
 
 
-@login_required(login_url='/login/')
-def customer_import_view(request):
-    _require_import_permission(request.user)
+def _sse(event_type, **payload):
+    """Format a single Server-Sent Event line."""
+    payload['type'] = event_type
+    return f"data: {json.dumps(payload)}\n\n"
 
-    if request.method != 'POST':
-        return render(request, 'core/customer_import.html')
 
-    csv_file = request.FILES.get('csv_file')
-    if not csv_file:
-        messages.error(request, 'Please select a CSV file to upload.')
-        return render(request, 'core/customer_import.html')
-
-    if not csv_file.name.lower().endswith('.csv'):
-        messages.error(request, 'File must be a .csv file.')
-        return render(request, 'core/customer_import.html')
-
+def _decode_csv(csv_file):
     try:
-        raw = csv_file.read().decode('utf-8-sig')  # utf-8-sig strips BOM
+        return csv_file.read().decode('utf-8-sig')
     except UnicodeDecodeError:
-        try:
-            csv_file.seek(0)
-            raw = csv_file.read().decode('latin-1')
-        except Exception:
-            messages.error(request, 'Could not decode the file. Save it as UTF-8 CSV and try again.')
-            return render(request, 'core/customer_import.html')
+        csv_file.seek(0)
+        return csv_file.read().decode('latin-1')
 
-    reader = csv.DictReader(io.StringIO(raw))
-    header = reader.fieldnames or []
 
-    col_name     = _find_col(header, _NAME_ALIASES)
-    col_phone    = _find_col(header, _PHONE_ALIASES)
-    col_location = _find_col(header, _LOCATION_ALIASES)
-    col_email    = _find_col(header, _EMAIL_ALIASES)
-
-    if not col_name or not col_phone:
-        missing = []
-        if not col_name:
-            missing.append('name (full name / contact name)')
-        if not col_phone:
-            missing.append('phone (mobile / tel)')
-        messages.error(
-            request,
-            f'Required columns not found: {", ".join(missing)}. '
-            f'Columns detected: {", ".join(header) or "(none)"}',
-        )
-        return render(request, 'core/customer_import.html')
-
-    created_rows = []
-    skipped_rows = []
-    error_rows   = []
-
-    from django.contrib.auth import get_user_model
+def _stream_import(raw_csv, col_name, col_phone, col_location, col_email, total_rows):
+    """Generator that yields SSE events while processing the CSV."""
     User = get_user_model()
 
+    reader = csv.DictReader(io.StringIO(raw_csv))
+    created = skipped = errors = 0
+
+    # Pre-load all customer phones for fast duplicate detection
+    existing_keys = {
+        phone_match_key(u.phone)
+        for u in User.objects.filter(role='Customer')
+        if u.phone
+    }
+
     for row_num, row in enumerate(reader, start=2):
-        name  = (row.get(col_name) or '').strip()
-        phone = (row.get(col_phone) or '').strip()
+        name     = (row.get(col_name) or '').strip()
+        phone    = (row.get(col_phone) or '').strip()
         location = (row.get(col_location) or '').strip() if col_location else ''
         email    = (row.get(col_email) or '').strip() if col_email else ''
 
+        processed = row_num - 1
+        progress  = round(processed / total_rows * 100) if total_rows else 100
+
+        # --- Validation ---
         if not name or not phone:
-            error_rows.append({
-                'row': row_num,
-                'name': name or '—',
-                'phone': phone or '—',
-                'reason': 'Missing name or phone — row skipped.',
-            })
+            errors += 1
+            yield _sse('row', status='error', row=row_num, name=name or '—',
+                       phone=phone or '—', progress=progress,
+                       reason='Missing name or phone — row skipped.')
+            continue
+
+        if not email:
+            errors += 1
+            yield _sse('row', status='error', row=row_num, name=name,
+                       phone=phone, progress=progress,
+                       reason='No email address — row skipped.')
             continue
 
         normalized = normalize_kenya_phone(phone)
         if not normalized:
-            error_rows.append({
-                'row': row_num,
-                'name': name,
-                'phone': phone,
-                'reason': f'Invalid phone number "{phone}" — could not normalize to 254XXXXXXXXX.',
-            })
+            errors += 1
+            yield _sse('row', status='error', row=row_num, name=name,
+                       phone=phone, progress=progress,
+                       reason=f'Invalid phone "{phone}" — could not normalize to 254XXXXXXXXX.')
             continue
 
-        # Skip if a customer with this phone already exists
         key = phone_match_key(normalized)
-        existing = None
-        for u in User.objects.filter(role='Customer'):
-            if phone_match_key(u.phone) == key:
-                existing = u
-                break
-
-        if existing:
-            skipped_rows.append({
-                'row': row_num,
-                'name': name,
-                'phone': normalized,
-                'reason': f'Customer already exists (account: {existing.display_name}).',
-            })
+        if key in existing_keys:
+            skipped += 1
+            yield _sse('row', status='skipped', row=row_num, name=name,
+                       phone=normalized, progress=progress,
+                       reason='Phone already exists — customer not duplicated.')
             continue
 
         try:
@@ -139,24 +112,69 @@ def customer_import_view(request):
                 email=email,
                 location=location,
             )
-            created_rows.append({
-                'row': row_num,
-                'name': user.display_name,
-                'phone': user.phone,
-            })
+            existing_keys.add(key)
+            created += 1
+            yield _sse('row', status='created', row=row_num, name=user.display_name,
+                       phone=user.phone, progress=progress, reason='')
         except Exception as exc:
-            error_rows.append({
-                'row': row_num,
-                'name': name,
-                'phone': normalized,
-                'reason': str(exc),
-            })
+            errors += 1
+            yield _sse('row', status='error', row=row_num, name=name,
+                       phone=normalized, progress=progress, reason=str(exc))
 
-    processed = len(created_rows) + len(skipped_rows) + len(error_rows)
-    return render(request, 'core/customer_import.html', {
-        'done': True,
-        'created': created_rows,
-        'skipped': skipped_rows,
-        'errors': error_rows,
-        'total_rows': processed,
-    })
+    yield _sse('done', created=created, skipped=skipped, errors=errors, total=total_rows)
+
+
+@login_required(login_url='/login/')
+def customer_import_view(request):
+    _require_import_permission(request.user)
+
+    if request.method != 'POST':
+        return render(request, 'core/customer_import.html')
+
+    csv_file = request.FILES.get('csv_file')
+    if not csv_file or not csv_file.name.lower().endswith('.csv'):
+        return render(request, 'core/customer_import.html', {
+            'upload_error': 'Please upload a valid .csv file.',
+        })
+
+    try:
+        raw = _decode_csv(csv_file)
+    except Exception:
+        return render(request, 'core/customer_import.html', {
+            'upload_error': 'Could not read the file. Save it as UTF-8 CSV and try again.',
+        })
+
+    # Parse header to detect columns
+    reader = csv.DictReader(io.StringIO(raw))
+    header = reader.fieldnames or []
+
+    col_name     = _find_col(header, _NAME_ALIASES)
+    col_phone    = _find_col(header, _PHONE_ALIASES)
+    col_location = _find_col(header, _LOCATION_ALIASES)
+    col_email    = _find_col(header, _EMAIL_ALIASES)
+
+    missing = []
+    if not col_name:
+        missing.append('name / full name / contact name')
+    if not col_phone:
+        missing.append('phone / mobile / tel')
+    if not col_email:
+        missing.append('email')
+    if missing:
+        return render(request, 'core/customer_import.html', {
+            'upload_error': (
+                f'Required column(s) not found: {", ".join(missing)}. '
+                f'Columns detected: {", ".join(header) or "(none)"}.'
+            ),
+        })
+
+    # Count data rows for progress bar
+    total_rows = sum(1 for _ in csv.DictReader(io.StringIO(raw)))
+
+    response = StreamingHttpResponse(
+        _stream_import(raw, col_name, col_phone, col_location, col_email, total_rows),
+        content_type='text/event-stream',
+    )
+    response['Cache-Control'] = 'no-cache'
+    response['X-Accel-Buffering'] = 'no'  # disable nginx buffering
+    return response
