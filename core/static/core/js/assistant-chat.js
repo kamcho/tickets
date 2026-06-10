@@ -412,6 +412,20 @@
         }
     }
 
+    const LOGIN_TRIGGER = /sign[\s\-]?in|portal login|log[\s\-]?in.*portal|please sign|must be signed/i;
+
+    function maybeAppendSignInButton(wrap, text) {
+        const loginUrl = window.ASSISTANT_PORTAL_LOGIN_URL;
+        if (!loginUrl) return;
+        if (!LOGIN_TRIGGER.test(text)) return;
+        const btn = document.createElement('a');
+        btn.href = loginUrl;
+        btn.className = 'btn btn-primary assistant-signin-btn';
+        btn.innerHTML = '<i data-feather="log-in"></i> Sign In';
+        wrap.appendChild(btn);
+        if (typeof feather !== 'undefined') feather.replace();
+    }
+
     function setBotBubbleContent(bubble, text) {
         bubble.classList.add('assistant-msg-bubble--formatted');
         renderBotReply(bubble, text);
@@ -426,6 +440,7 @@
             bubble.textContent = text;
         } else {
             setBotBubbleContent(bubble, text);
+            maybeAppendSignInButton(wrap, text);
         }
         wrap.appendChild(bubble);
         messagesEl.appendChild(wrap);

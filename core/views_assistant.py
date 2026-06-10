@@ -133,6 +133,7 @@ def assistant_page(request):
 
     sidebar = build_sidebar_payload(conv, request=request)
     portal_tickets_base = request.build_absolute_uri(reverse('portal_ticket_list'))
+    portal_login_url = request.build_absolute_uri(reverse('portal_login'))
 
     return render(request, 'core/assistant.html', {
 
@@ -149,6 +150,8 @@ def assistant_page(request):
         'categories_json': json.dumps(categories_payload()),
 
         'portal_tickets_base': portal_tickets_base,
+
+        'portal_login_url': portal_login_url,
 
     })
 

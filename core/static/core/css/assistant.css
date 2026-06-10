@@ -261,6 +261,19 @@
 
 .assistant-msg--bot {
     align-self: flex-start;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+}
+
+.assistant-signin-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    font-size: 0.88rem;
+    padding: 0.45rem 1rem;
+    border-radius: 8px;
 }
 
 .assistant-msg-bubble {

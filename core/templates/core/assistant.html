@@ -190,6 +190,7 @@
     window.ASSISTANT_CHAT_STREAM_URL = "{% url 'assistant_chat_stream_api' %}";
     window.CATEGORY_SUGGEST_URL = "{% url 'category_suggest_api' %}";
     window.ASSISTANT_PORTAL_TICKETS_BASE = "{{ portal_tickets_base|escapejs }}";
+    window.ASSISTANT_PORTAL_LOGIN_URL = "{{ portal_login_url|escapejs }}";
     window.ASSISTANT_SIDEBAR = {{ sidebar_json|safe }};
     window.ASSISTANT_CATEGORIES = {{ categories_json|safe }};
 
