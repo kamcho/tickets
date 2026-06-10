@@ -275,26 +275,32 @@ def notify_ticket_created(ticket, source='unknown'):
 
         sms_debug(source, 'notify_ticket_created_skip_customer', reason='no_customer')
 
-    # --- SMS all receptionists ---
-    User = get_user_model()
+    # --- SMS all receptionists (AI-created tickets only) ---
+    if source == 'assistant':
 
-    receptionists = User.objects.filter(role='Receptionist').exclude(phone='')
+        User = get_user_model()
 
-    receptionist_msg = build_ticket_created_receptionist_sms(ticket)
+        receptionists = User.objects.filter(role='Receptionist').exclude(phone='')
 
-    for receptionist in receptionists:
+        receptionist_msg = build_ticket_created_receptionist_sms(ticket)
 
-        _sms_to_user(
+        for receptionist in receptionists:
 
-            receptionist,
+            _sms_to_user(
 
-            receptionist_msg,
+                receptionist,
 
-            f'Ticket {ticket.ticket_id} created (receptionist)',
+                receptionist_msg,
 
-            source,
+                f'Ticket {ticket.ticket_id} created (receptionist)',
 
-        )
+                source,
+
+            )
+
+    else:
+
+        sms_debug(source, 'notify_ticket_created_skip_receptionist', reason='not_from_assistant')
 
     sms_debug(source, 'notify_ticket_created_end', ticket_id=ticket.ticket_id)
 
