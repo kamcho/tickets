@@ -143,15 +143,13 @@ class CustomerForm(forms.ModelForm):
 
     class Meta:
         model = MyUser
-        fields = ['email', 'phone', 'address', 'location']
+        fields = ['phone', 'address', 'location']
         widgets = {
-            'email': forms.EmailInput(attrs={
-                'class': 'form-input',
-                'placeholder': 'john@company.co.ke'
-            }),
             'phone': forms.TextInput(attrs={
                 'class': 'form-input',
-                'placeholder': '+254 7XX XXX XXX'
+                'placeholder': '07XX XXX XXX or 254 7XX XXX XXX',
+                'inputmode': 'tel',
+                'autocomplete': 'tel',
             }),
             'address': forms.Textarea(attrs={
                 'class': 'form-input',
@@ -183,7 +181,6 @@ class CustomerForm(forms.ModelForm):
         first, last = split_contact_name(contact)
         user = create_customer_user(
             contact_name=contact,
-            email=self.cleaned_data['email'],
             phone=phone,
             password=password,
             address=self.cleaned_data.get('address') or '',
