@@ -438,6 +438,22 @@ def tool_create_or_get_customer(contact_name='', phone='', email='', address='',
     return {'created': True, 'customer': _customer_payload(user)}
 
 
+def _customer_has_recent_open_ticket(customer):
+    """Return the most recent open ticket created in the last 24 hours, or None."""
+    from django.utils import timezone
+    from datetime import timedelta
+    cutoff = timezone.now() - timedelta(hours=24)
+    return (
+        Ticket.objects.filter(
+            customer=customer,
+            status__in=('Open', 'In Progress', 'On Hold'),
+            created_at__gte=cutoff,
+        )
+        .order_by('-created_at')
+        .first()
+    )
+
+
 def tool_create_support_ticket(
     description='',
     category_name='',
@@ -457,6 +473,21 @@ def tool_create_support_ticket(
         return {'error': 'description is required.'}
     if priority not in dict(Ticket.PRIORITY):
         priority = 'Medium'
+
+    # On web channel the customer must be signed in (linked to the conversation).
+    # WhatsApp identifies by phone so no login is needed there.
+    if channel == 'web':
+        has_linked = conversation and getattr(conversation, 'customer_id', None)
+        has_phone = bool((phone or '').strip())
+        if not has_linked and not has_phone:
+            return {
+                'error': 'login_required',
+                'message': (
+                    'The user must be signed in to create a ticket. '
+                    'Tell them to sign in at the portal login page using their phone number '
+                    'as both their username and password, then come back to this chat.'
+                ),
+            }
 
     names = list(category_names or [])
     if category_name:
@@ -500,6 +531,22 @@ def tool_create_support_ticket(
     if not customer:
         return {
             'error': 'Customer required. Provide customer_id or contact_name+phone, or register the customer first.',
+        }
+
+    # Block if customer already has an open ticket created in the last 24 hours.
+    recent_open = _customer_has_recent_open_ticket(customer)
+    if recent_open:
+        return {
+            'error': 'recent_open_ticket',
+            'message': (
+                f'This customer already has an open ticket ({recent_open.ticket_id}) '
+                f'created within the last 24 hours (status: {recent_open.status}). '
+                'Tell them they cannot create a new ticket until it is resolved or closed, '
+                'or until 24 hours have passed.'
+            ),
+            'existing_ticket_id': recent_open.ticket_id,
+            'existing_status': recent_open.status,
+            'existing_categories': recent_open.categories_display,
         }
 
     existing = find_matching_open_ticket(customer, categories, description)

@@ -107,9 +107,19 @@ def _parse_chat_body(request):
 
 def assistant_page(request):
 
-    """Public web chat for customers."""
+    """Web chat for customers — links conversation to logged-in portal user if present."""
 
     conv = get_or_create_web_conversation(request)
+
+    # If a customer is signed in to the portal, attach them to this conversation
+    # so the AI knows who they are without asking for their phone number.
+    if (
+        request.user.is_authenticated
+        and getattr(request.user, 'role', None) == 'Customer'
+        and not conv.customer_id
+    ):
+        conv.customer = request.user
+        conv.save(update_fields=['customer', 'updated_at'])
 
     history = [
 

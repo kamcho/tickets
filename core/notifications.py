@@ -2,7 +2,7 @@
 
 import logging
 
-
+from django.contrib.auth import get_user_model
 
 from core.models import Ticket, TicketAssignment
 
@@ -208,11 +208,93 @@ def build_ticket_assigned_agent_sms(ticket, agent):
 
 
 
+def build_ticket_created_customer_sms(ticket):
+
+    customer = ticket.customer
+
+    name = _first_name(customer, fallback='there')
+
+    return (
+        f'Hi {name}, your complaint has been received. '
+        f'Ticket {ticket.ticket_id} has been created and is being handled. '
+        f'Thank you for your patience and understanding.'
+    )
+
+
+def build_ticket_created_receptionist_sms(ticket):
+
+    customer = ticket.customer
+
+    customer_name = _first_name(customer, fallback='Unknown')
+
+    customer_phone = customer.phone if customer else ''
+
+    phone_part = f' ({customer_phone})' if customer_phone else ''
+
+    return (
+        f'New ticket {ticket.ticket_id} created by {customer_name}{phone_part}. '
+        f'Categories: {ticket.categories_display}. '
+        f'Priority: {ticket.priority}.'
+    )
+
+
 def notify_ticket_created(ticket, source='unknown'):
 
-    """Hook when a ticket is logged. Customer SMS is sent on agent assignment."""
+    """SMS customer (complaint received) and all receptionists when a ticket is logged."""
 
     sms_debug(source, 'notify_ticket_created_start', ticket_id=ticket.ticket_id)
+
+    sms_debug_ujumbe_config(source)
+
+    if not ujumbe_configured():
+
+        sms_debug(source, 'notify_ticket_created_skip', reason='ujumbe_not_configured')
+
+        sms_debug(source, 'notify_ticket_created_end', ticket_id=ticket.ticket_id)
+
+        return
+
+    ticket = _ticket_for_sms(ticket)
+
+    # --- SMS customer ---
+    if ticket.customer:
+
+        _sms_to_user(
+
+            ticket.customer,
+
+            build_ticket_created_customer_sms(ticket),
+
+            f'Ticket {ticket.ticket_id} created (customer)',
+
+            source,
+
+        )
+
+    else:
+
+        sms_debug(source, 'notify_ticket_created_skip_customer', reason='no_customer')
+
+    # --- SMS all receptionists ---
+    User = get_user_model()
+
+    receptionists = User.objects.filter(role='Receptionist').exclude(phone='')
+
+    receptionist_msg = build_ticket_created_receptionist_sms(ticket)
+
+    for receptionist in receptionists:
+
+        _sms_to_user(
+
+            receptionist,
+
+            receptionist_msg,
+
+            f'Ticket {ticket.ticket_id} created (receptionist)',
+
+            source,
+
+        )
 
     sms_debug(source, 'notify_ticket_created_end', ticket_id=ticket.ticket_id)
 
