@@ -403,6 +403,11 @@ def tool_create_or_get_customer(contact_name='', phone='', email='', address='',
     if not contact_name or not phone:
         return {'error': 'contact_name and phone are required.'}
 
+    from core.phone_utils import normalize_kenya_phone as _norm
+    normalized_phone = _norm(phone)
+    if normalized_phone:
+        phone = normalized_phone
+
     matches = list(customers_for_contact(phone=phone, conversation=conversation))
     if matches:
         existing = matches[0]

@@ -14,7 +14,12 @@ class MyUserManager(BaseUserManager):
         phone = (extra_fields.get('phone') or '').strip()
         if phone:
             normalized = normalize_kenya_phone(phone)
-            extra_fields['phone'] = normalized or phone
+            if not normalized:
+                raise ValueError(
+                    f'Phone number {phone!r} could not be normalized to 254XXXXXXXXX format. '
+                    'Provide a valid Kenyan mobile (07…, 254…, +254…).'
+                )
+            extra_fields['phone'] = normalized
         extra_fields.setdefault('first_name', 'User')
         extra_fields.setdefault('last_name', '-')
         user = self.model(email=email, **extra_fields)
@@ -78,6 +83,8 @@ class MyUser(AbstractUser):
             normalized = normalize_kenya_phone(self.phone)
             if normalized:
                 self.phone = normalized
+            # If normalization fails, keep the current value rather than
+            # wiping it — the form layer is responsible for rejecting invalid input.
         super().save(*args, **kwargs)
 
 

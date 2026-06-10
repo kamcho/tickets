@@ -43,7 +43,12 @@ def _email_from_phone(phone):
 
 def create_customer_user(contact_name, phone, password, email='', address='', location=''):
     """Create or update MyUser with role=Customer. Email is optional — derived from phone if omitted."""
-    phone_normalized = normalize_kenya_phone(phone) or phone.strip()
+    phone_normalized = normalize_kenya_phone(phone)
+    if not phone_normalized:
+        raise ValueError(
+            f'Phone number {phone!r} is not a valid Kenyan mobile. '
+            'Use 07…, 254…, or +254… format.'
+        )
     if not email:
         email = _email_from_phone(phone_normalized)
     email = User.objects.normalize_email(email.strip())
