@@ -4,6 +4,7 @@ import io
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
+from django.core.exceptions import PermissionDenied
 from django.shortcuts import render, redirect
 
 from core.customer_accounts import (
@@ -13,8 +14,10 @@ from core.customer_accounts import (
 from core.phone_utils import normalize_kenya_phone, phone_match_key
 
 
-def _user_can_import(user):
-    return user.is_authenticated and user.role in ('Admin', 'Receptionist')
+def _require_import_permission(user):
+    if not user.is_authenticated or user.role not in ('Admin', 'Receptionist'):
+        raise PermissionDenied
+
 
 
 # Column name aliases accepted in the CSV header (case-insensitive)
@@ -34,9 +37,7 @@ def _find_col(header_row, aliases):
 
 @login_required(login_url='/login/')
 def customer_import_view(request):
-    if not _user_can_import(request.user):
-        messages.error(request, 'Only admins and receptionists can import customers.')
-        return redirect('customer_list')
+    _require_import_permission(request.user)
 
     if request.method != 'POST':
         return render(request, 'core/customer_import.html')

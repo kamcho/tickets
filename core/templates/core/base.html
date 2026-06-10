@@ -46,19 +46,19 @@
                         </a>
                     </li>
                     {% endif %}
+                    {% if user.role == 'Admin' or user.role == 'Receptionist' %}
                     <li class="nav-item">
                         <a href="/customers/" class="nav-link {% if 'customers' in request.path %}active{% endif %}" id="nav-customers">
                             <i data-feather="briefcase" style="width: 16px; height: 16px;"></i> Customers
                         </a>
                     </li>
+                    {% endif %}
                     {% if user.role == 'Admin' %}
                         <li class="nav-item">
                             <a href="/users/" class="nav-link {% if 'users' in request.path %}active{% endif %}" id="nav-user-management">
                                 <i data-feather="users" style="width: 16px; height: 16px;"></i> Users
                             </a>
                         </li>
-                    {% endif %}
-                    {% if user.role == 'Admin' or user.is_staff %}
                         <li class="nav-item">
                             <a href="/admin/" class="nav-link" id="nav-admin-portal" target="_blank">
                                 <i data-feather="settings" style="width: 16px; height: 16px;"></i> Admin Console

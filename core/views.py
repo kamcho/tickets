@@ -7,6 +7,7 @@ from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.core.exceptions import PermissionDenied
 from django.db.models import Q, Count, Prefetch
 from django_hosts.resolvers import reverse as host_reverse
 from .models import MyUser, Ticket, TicketCategory, TicketAssignment, TicketComments, TicketAttachments
@@ -221,6 +222,18 @@ def _user_can_create_tickets(user):
 
 def _user_can_assign_tickets(user):
     return user.role in ['Admin', 'Receptionist'] or user.is_staff
+
+
+def _require_admin_or_receptionist(user):
+    """Raise 403 if the user is not an Admin or Receptionist."""
+    if user.role not in ('Admin', 'Receptionist'):
+        raise PermissionDenied
+
+
+def _require_admin(user):
+    """Raise 403 if the user is not an Admin."""
+    if user.role != 'Admin':
+        raise PermissionDenied
 
 
 def _apply_ticket_assignment(ticket, form, user, sms_source='ticket_create_page'):
@@ -573,9 +586,7 @@ def _build_user_assignment_rows(users):
 
 @login_required(login_url='/login/')
 def user_list_view(request):
-    if request.user.role != 'Admin':
-        messages.error(request, "Access denied. Only Admins can manage users.")
-        return redirect("/")
+    _require_admin(request.user)
 
     users = list(
         MyUser.objects.exclude(role='Customer').order_by('-date_joined')
@@ -597,9 +608,7 @@ def user_list_view(request):
 
 @login_required(login_url='/login/')
 def user_create_view(request):
-    if request.user.role != 'Admin':
-        messages.error(request, "Access denied. Only Admins can manage users.")
-        return redirect("/")
+    _require_admin(request.user)
         
     if request.method == "POST":
         form = UserCreateForm(request.POST)
@@ -627,6 +636,7 @@ CUSTOMERS_PER_PAGE = 100
 
 @login_required(login_url='/login/')
 def customer_list_view(request):
+    _require_admin_or_receptionist(request.user)
     search_query = request.GET.get('search', '').strip()
     customers_qs = MyUser.objects.filter(role='Customer').annotate(
         ticket_count=Count('customer_tickets'),
@@ -657,9 +667,7 @@ def customer_list_view(request):
 
 @login_required(login_url='/login/')
 def customer_create_view(request):
-    if request.user.role not in ['Admin', 'Receptionist']:
-        messages.error(request, "Access denied. Only Admins and Receptionists can add customers.")
-        return redirect("customer_list")
+    _require_admin_or_receptionist(request.user)
 
     if request.method == "POST":
         form = CustomerForm(request.POST)
@@ -687,6 +695,7 @@ def customer_create_view(request):
 
 @login_required(login_url='/login/')
 def customer_detail_view(request, pk):
+    _require_admin_or_receptionist(request.user)
     customer = get_object_or_404(MyUser, pk=pk, role='Customer')
     tickets = Ticket.objects.filter(customer=customer).order_by('-created_at')
 
