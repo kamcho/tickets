@@ -58,10 +58,10 @@ def portal_login(request):
                 if result:
                     ticket, customer_user = result
                     if customer_user.has_usable_password():
-                    messages.info(
-                        request,
-                        'Please sign in with your phone number and password for full access.',
-                    )
+                        messages.info(
+                            request,
+                            'Please sign in with your phone number and password for full access.',
+                        )
                         return redirect('portal_login')
                     login_portal_user(request, customer_user)
                     messages.success(request, 'Welcome — here is your ticket.')
