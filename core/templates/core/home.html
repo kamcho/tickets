@@ -86,12 +86,7 @@
         <div class="form-group" style="width: 160px; margin-bottom: 0;">
             <label for="status" class="form-label">Status</label>
             <select name="status" id="status" class="form-input">
-                {% if is_agent %}
-                    <option value="active" {% if filters.status == 'active' %}selected{% endif %}>Active (Open & In Progress)</option>
-                    <option value="" {% if filters.status == '' %}selected{% endif %}>All My Statuses</option>
-                {% else %}
-                    <option value="">All Statuses</option>
-                {% endif %}
+                <option value="active" {% if filters.status == 'active' %}selected{% endif %}>Active (Open & In Progress & On Hold)</option>
                 <option value="Open" {% if filters.status == 'Open' %}selected{% endif %}>Open</option>
                 <option value="In Progress" {% if filters.status == 'In Progress' %}selected{% endif %}>In Progress</option>
                 <option value="On Hold" {% if filters.status == 'On Hold' %}selected{% endif %}>On Hold</option>

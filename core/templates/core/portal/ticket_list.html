@@ -13,6 +13,39 @@
     </a>
 </div>
 
+<div style="display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1rem;">
+    <a href="?status=active"
+       class="btn {% if status_filter == 'active' %}btn-primary{% else %}btn-secondary{% endif %}"
+       style="font-size: 0.82rem; padding: 0.35rem 0.9rem;">
+        Active
+    </a>
+    <a href="?status=Open"
+       class="btn {% if status_filter == 'Open' %}btn-primary{% else %}btn-secondary{% endif %}"
+       style="font-size: 0.82rem; padding: 0.35rem 0.9rem;">
+        Open
+    </a>
+    <a href="?status=In+Progress"
+       class="btn {% if status_filter == 'In Progress' %}btn-primary{% else %}btn-secondary{% endif %}"
+       style="font-size: 0.82rem; padding: 0.35rem 0.9rem;">
+        In Progress
+    </a>
+    <a href="?status=On+Hold"
+       class="btn {% if status_filter == 'On Hold' %}btn-primary{% else %}btn-secondary{% endif %}"
+       style="font-size: 0.82rem; padding: 0.35rem 0.9rem;">
+        On Hold
+    </a>
+    <a href="?status=Resolved"
+       class="btn {% if status_filter == 'Resolved' %}btn-primary{% else %}btn-secondary{% endif %}"
+       style="font-size: 0.82rem; padding: 0.35rem 0.9rem;">
+        Resolved
+    </a>
+    <a href="?status=Closed"
+       class="btn {% if status_filter == 'Closed' %}btn-primary{% else %}btn-secondary{% endif %}"
+       style="font-size: 0.82rem; padding: 0.35rem 0.9rem;">
+        Closed
+    </a>
+</div>
+
 <div class="card" style="padding: 0; overflow: hidden;">
     <div class="table-scroll">
         <table class="portal-ticket-table">
@@ -55,8 +88,12 @@
                 {% empty %}
                 <tr>
                     <td colspan="7" style="padding: 3rem; text-align: center; color: var(--text-muted);">
-                        You have no tickets yet.
-                        <a href="{% url 'portal_ticket_create' %}" style="color: var(--accent);">Open your first ticket</a>
+                        {% if status_filter == 'active' %}
+                            No active tickets.
+                            <a href="{% url 'portal_ticket_create' %}" style="color: var(--accent);">Open your first ticket</a>
+                        {% else %}
+                            No tickets with status "{{ status_filter }}".
+                        {% endif %}
                     </td>
                 </tr>
                 {% endfor %}

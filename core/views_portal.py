@@ -151,12 +151,27 @@ def portal_logout(request):
 @customer_portal_required
 def portal_ticket_list(request):
     customer = get_portal_customer(request)
+    status_filter = request.GET.get('status', '').strip()
+
+    ACTIVE_STATUSES = ['Open', 'In Progress', 'On Hold']
+
     tickets = Ticket.objects.filter(customer=customer).prefetch_related(
         'categories',
     ).order_by('-created_at')
+
+    if status_filter in ('Resolved', 'Closed'):
+        tickets = tickets.filter(status=status_filter)
+    elif status_filter and status_filter not in ('', 'active'):
+        tickets = tickets.filter(status=status_filter)
+    else:
+        # Default: hide resolved/closed
+        tickets = tickets.filter(status__in=ACTIVE_STATUSES)
+        status_filter = 'active'
+
     return render(request, 'core/portal/ticket_list.html', {
         'customer': customer,
         'tickets': tickets,
+        'status_filter': status_filter,
     })
 
 

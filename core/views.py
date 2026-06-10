@@ -127,6 +127,9 @@ def home_view(request):
     category_filter = request.GET.get('category', '')
     search_query = request.GET.get('search', '')
 
+    ACTIVE_STATUSES = ['Open', 'In Progress', 'On Hold']
+    RESOLVED_STATUSES = ['Resolved', 'Closed']
+
     tickets = Ticket.objects.prefetch_related(
         'categories',
         Prefetch(
@@ -135,16 +138,19 @@ def home_view(request):
         ),
     ).order_by('-created_at')
 
-    # If user is a Field Agent, filter for their assignments by default
+    # If user is a Field Agent, scope to their assignments only
     if is_agent:
         tickets = tickets.filter(ticketassignment__assigned_to=request.user)
-        # Default view for agents shows only Open & In Progress
-        if not status_filter and 'all_status' not in request.GET:
-            tickets = tickets.filter(status__in=['Open', 'In Progress'])
-            status_filter = 'active'
 
-    # Apply filters
-    if status_filter and status_filter != 'active':
+    # Default: hide Resolved/Closed unless the user explicitly filters for them
+    if status_filter in ('', 'active'):
+        tickets = tickets.filter(status__in=ACTIVE_STATUSES)
+        status_filter = 'active'
+    elif status_filter not in RESOLVED_STATUSES:
+        # A specific non-resolved status was requested (e.g. Open, In Progress)
+        tickets = tickets.filter(status=status_filter)
+    else:
+        # Resolved or Closed explicitly requested
         tickets = tickets.filter(status=status_filter)
     if priority_filter:
         tickets = tickets.filter(priority=priority_filter)
