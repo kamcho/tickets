@@ -7,6 +7,7 @@ from .views import (
     customer_list_view, customer_create_view, customer_detail_view,
     customer_search_api, agent_search_api,
 )
+from .views_import import customer_import_view
 from .views_assistant import (
     assistant_page, assistant_chat_api, assistant_chat_stream_api,
     category_suggest_api, whatsapp_webhook,
@@ -28,6 +29,7 @@ urlpatterns = [
     path("users/create/", user_create_view, name="user_create"),
     path("customers/", customer_list_view, name="customer_list"),
     path("customers/create/", customer_create_view, name="customer_create"),
+    path("customers/import/", customer_import_view, name="customer_import"),
     path("customers/<int:pk>/", customer_detail_view, name="customer_detail"),
     path("api/customers/search/", customer_search_api, name="customer_search_api"),
     path("api/agents/search/", agent_search_api, name="agent_search_api"),

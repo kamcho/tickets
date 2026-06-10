@@ -1,0 +1,156 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Import Customers — Metrolinks{% endblock %}
+
+{% block content %}
+<div style="max-width: 900px; margin: 0 auto;">
+
+    <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 2rem; flex-wrap: wrap;">
+        <div style="flex: 1;">
+            <h1 style="font-size: 1.6rem; font-weight: 800; margin-bottom: 0.25rem;">Import Customers from CSV</h1>
+            <p style="color: var(--text-secondary); font-size: 0.9rem;">
+                Upload a CSV file to bulk-create customer accounts. Existing phone numbers are skipped automatically.
+            </p>
+        </div>
+        <a href="{% url 'customer_list' %}" class="btn btn-secondary">
+            <i data-feather="arrow-left" style="width:15px;height:15px;"></i> Back to Customers
+        </a>
+    </div>
+
+    {% if not done %}
+    <!-- Upload form -->
+    <div class="card" style="padding: 2rem;">
+        <h2 style="font-size: 1.1rem; font-weight: 700; margin-bottom: 1.25rem;">
+            <i data-feather="upload" style="width:16px;height:16px;vertical-align:-2px;"></i> Upload CSV
+        </h2>
+
+        <div style="background: rgba(99,102,241,0.07); border: 1px solid rgba(99,102,241,0.2); border-radius: 10px; padding: 1rem 1.25rem; margin-bottom: 1.5rem; font-size: 0.85rem; color: var(--text-secondary);">
+            <strong style="color: var(--text-primary);">Expected columns (header row required):</strong>
+            <ul style="margin: 0.5rem 0 0 1.2rem; padding: 0;">
+                <li><code>name</code> or <code>full name</code> or <code>contact name</code> &mdash; <strong>required</strong></li>
+                <li><code>phone</code> or <code>mobile</code> or <code>tel</code> &mdash; <strong>required</strong> &mdash; accepts 07…, 254…, +254…</li>
+                <li><code>location</code> or <code>address</code> &mdash; optional</li>
+                <li><code>email</code> &mdash; optional (auto-generated from phone if missing)</li>
+            </ul>
+            <p style="margin: 0.75rem 0 0;">Extra columns are ignored. Rows with a phone number that already exists are skipped.</p>
+        </div>
+
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="form-group" style="margin-bottom: 1.5rem;">
+                <label class="form-label" for="csv_file">CSV File</label>
+                <input type="file" name="csv_file" id="csv_file" accept=".csv" class="form-input" required>
+            </div>
+            <button type="submit" class="btn btn-primary">
+                <i data-feather="upload-cloud" style="width:15px;height:15px;"></i> Import
+            </button>
+        </form>
+    </div>
+
+    {% else %}
+    <!-- Results -->
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
+        <div class="card" style="padding: 1.25rem; text-align: center;">
+            <div style="font-size: 2rem; font-weight: 800; color: var(--success);">{{ created|length }}</div>
+            <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.2rem;">Created</div>
+        </div>
+        <div class="card" style="padding: 1.25rem; text-align: center;">
+            <div style="font-size: 2rem; font-weight: 800; color: var(--warning, #f59e0b);">{{ skipped|length }}</div>
+            <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.2rem;">Skipped (already exist)</div>
+        </div>
+        <div class="card" style="padding: 1.25rem; text-align: center;">
+            <div style="font-size: 2rem; font-weight: 800; color: var(--danger);">{{ errors|length }}</div>
+            <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 0.2rem;">Errors</div>
+        </div>
+    </div>
+
+    {% if created %}
+    <div class="card" style="padding: 0; overflow: hidden; margin-bottom: 1.25rem;">
+        <div style="padding: 1rem 1.25rem; border-bottom: 1px solid var(--border-color); font-weight: 700; font-size: 0.9rem; color: var(--success);">
+            <i data-feather="check-circle" style="width:15px;height:15px;vertical-align:-2px;"></i>
+            Created ({{ created|length }})
+        </div>
+        <div class="table-scroll">
+            <table class="portal-ticket-table">
+                <thead>
+                    <tr><th>Row</th><th>Name</th><th>Phone</th></tr>
+                </thead>
+                <tbody>
+                    {% for r in created %}
+                    <tr>
+                        <td style="color:var(--text-muted);font-size:0.8rem;">{{ r.row }}</td>
+                        <td>{{ r.name }}</td>
+                        <td><code>{{ r.phone }}</code></td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if skipped %}
+    <div class="card" style="padding: 0; overflow: hidden; margin-bottom: 1.25rem;">
+        <div style="padding: 1rem 1.25rem; border-bottom: 1px solid var(--border-color); font-weight: 700; font-size: 0.9rem; color: var(--warning, #f59e0b);">
+            <i data-feather="skip-forward" style="width:15px;height:15px;vertical-align:-2px;"></i>
+            Skipped — phone already exists ({{ skipped|length }})
+        </div>
+        <div class="table-scroll">
+            <table class="portal-ticket-table">
+                <thead>
+                    <tr><th>Row</th><th>Name</th><th>Phone</th><th>Reason</th></tr>
+                </thead>
+                <tbody>
+                    {% for r in skipped %}
+                    <tr>
+                        <td style="color:var(--text-muted);font-size:0.8rem;">{{ r.row }}</td>
+                        <td>{{ r.name }}</td>
+                        <td><code>{{ r.phone }}</code></td>
+                        <td style="color:var(--text-secondary);font-size:0.82rem;">{{ r.reason }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    {% if errors %}
+    <div class="card" style="padding: 0; overflow: hidden; margin-bottom: 1.25rem;">
+        <div style="padding: 1rem 1.25rem; border-bottom: 1px solid var(--border-color); font-weight: 700; font-size: 0.9rem; color: var(--danger);">
+            <i data-feather="alert-circle" style="width:15px;height:15px;vertical-align:-2px;"></i>
+            Errors ({{ errors|length }})
+        </div>
+        <div class="table-scroll">
+            <table class="portal-ticket-table">
+                <thead>
+                    <tr><th>Row</th><th>Name</th><th>Phone</th><th>Reason</th></tr>
+                </thead>
+                <tbody>
+                    {% for r in errors %}
+                    <tr>
+                        <td style="color:var(--text-muted);font-size:0.8rem;">{{ r.row }}</td>
+                        <td>{{ r.name }}</td>
+                        <td><code>{{ r.phone }}</code></td>
+                        <td style="color:var(--danger);font-size:0.82rem;">{{ r.reason }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <div style="display: flex; gap: 1rem; margin-top: 1rem; flex-wrap: wrap;">
+        <a href="{% url 'customer_import' %}" class="btn btn-secondary">
+            <i data-feather="upload" style="width:15px;height:15px;"></i> Import another file
+        </a>
+        <a href="{% url 'customer_list' %}" class="btn btn-primary">
+            <i data-feather="users" style="width:15px;height:15px;"></i> View all customers
+        </a>
+    </div>
+    {% endif %}
+
+</div>
+{% endblock %}

@@ -10,9 +10,14 @@
         <p style="color: var(--text-secondary); font-size: 0.9rem;">Manage and view all registered customer accounts for Metrolinks Solution Ltd.</p>
     </div>
     {% if user.role == 'Admin' or user.role == 'Receptionist' %}
+    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap;">
+        <a href="{% url 'customer_import' %}" class="btn btn-secondary" style="padding: 0.75rem 1.5rem;" id="btn-import-customers">
+            <i data-feather="upload" style="width: 16px; height: 16px;"></i> Import CSV
+        </a>
         <a href="/customers/create/" class="btn btn-primary" style="padding: 0.75rem 1.5rem;" id="btn-add-customer">
             <i data-feather="user-plus" style="width: 16px; height: 16px;"></i> Add Customer
         </a>
+    </div>
     {% endif %}
 </div>
 
