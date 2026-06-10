@@ -210,6 +210,22 @@ TOOL_SCHEMAS = [
 
 def tool_get_user_context(customer_id=None, phone=None, conversation=None, request=None, **_kwargs):
     """Return the full customer profile + all their tickets + all categories."""
+    # No identifier at all — tell the model to ask for phone first.
+    has_linked = conversation and getattr(conversation, 'customer_id', None)
+    if not customer_id and not phone and not has_linked:
+        categories = list(TicketCategory.objects.order_by('name').values('id', 'name'))
+        return {
+            'error': 'no_identifier',
+            'message': (
+                'No customer identifier provided. '
+                'Ask the user for their phone number to retrieve their data.'
+            ),
+            'customer': None,
+            'tickets': [],
+            'ticket_count': 0,
+            'available_categories': categories,
+        }
+
     customers, tickets = tickets_for_contact(
         phone=phone,
         customer_id=customer_id,
@@ -287,13 +303,34 @@ def tool_list_ticket_categories(**_kwargs):
 
 
 def tool_get_customer_tickets(customer_id=None, phone=None, conversation=None, request=None, **_kwargs):
+    # No identifier at all — tell the model to ask for the phone number.
+    has_linked = conversation and getattr(conversation, 'customer_id', None)
+    if not customer_id and not phone and not has_linked:
+        return {
+            'error': 'no_identifier',
+            'message': (
+                'No customer identifier provided. '
+                'Ask the user for their phone number before listing tickets.'
+            ),
+            'tickets': [],
+            'count': 0,
+        }
+
     customers, tickets = tickets_for_contact(
         phone=phone,
         customer_id=customer_id,
         conversation=conversation,
     )
     if not customers.exists() and not tickets.exists():
-        return {'error': 'Customer not found.', 'tickets': [], 'count': 0}
+        return {
+            'error': 'customer_not_found',
+            'message': (
+                'No customer account found for that phone number or ID. '
+                'Ask the user to double-check their number, or offer to register them.'
+            ),
+            'tickets': [],
+            'count': 0,
+        }
 
     link_conversation_to_best_customer(
         conversation, phone=phone, customer_id=customer_id,
