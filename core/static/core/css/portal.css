@@ -2,6 +2,10 @@
     display: flex;
 }
 
+.portal-nav-toggle {
+    display: none;
+}
+
 .portal-user-chip {
     font-size: 0.85rem;
     color: var(--text-secondary);
@@ -87,9 +91,23 @@
 .portal-status--resolved { background: rgba(16, 185, 129, 0.15); color: var(--success); }
 .portal-status--closed { background: rgba(255, 255, 255, 0.05); color: var(--text-muted); }
 
+@media (max-width: 992px) {
+    .portal-nav-toggle {
+        display: flex;
+    }
+
+    .portal-user-chip {
+        display: none;
+    }
+}
+
 @media (max-width: 768px) {
     .portal-navbar .portal-nav-menu {
         display: none;
+    }
+
+    .portal-navbar .portal-nav-menu.show {
+        display: flex;
     }
 
     .portal-ticket-table thead {

@@ -120,8 +120,8 @@
                 {% endif %}
             </div>
         </div>
-        <div class="nav-backdrop" id="nav-backdrop" aria-hidden="true"></div>
     </nav>
+    <div class="nav-backdrop" id="nav-backdrop" aria-hidden="true"></div>
 
     <!-- Main Content Layout Section -->
     <main class="main-wrapper" id="main-content-section">
@@ -206,7 +206,6 @@
             if (!toggleBtn || !navMenu) return;
 
             navMenu.classList.toggle('show', isOpen);
-            document.body.classList.toggle('nav-open', isOpen);
             if (backdrop) {
                 backdrop.classList.toggle('show', isOpen);
                 backdrop.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
@@ -239,15 +238,11 @@
                 }
 
                 navMenu.querySelectorAll('.nav-link').forEach(link => {
-                    link.addEventListener('click', closeNav);
+                    link.addEventListener('click', function() {
+                        closeNav();
+                    });
                 });
 
-                window.addEventListener('click', function(e) {
-                    const navbar = document.getElementById('main-navbar');
-                    if (navbar && !navbar.contains(e.target)) {
-                        closeNav();
-                    }
-                });
 
                 window.addEventListener('keydown', function(e) {
                     if (e.key === 'Escape') closeNav();

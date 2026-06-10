@@ -10,6 +10,10 @@
     --landing-font: 'Plus Jakarta Sans', 'Inter', system-ui, sans-serif;
 }
 
+html {
+    scroll-padding-top: var(--landing-header-h);
+}
+
 .landing-header {
     position: fixed;
     top: 0;
@@ -236,31 +240,41 @@
     left: 0;
     right: 0;
     bottom: 0;
-    z-index: 999;
-    background: rgba(8, 2, 12, 0.55);
-    backdrop-filter: blur(4px);
-    opacity: 0;
+    z-index: 1100;
     pointer-events: none;
-    transition: opacity 0.25s ease;
 }
 
 .landing-mobile-panel.is-open {
     display: block;
-    opacity: 1;
     pointer-events: auto;
 }
 
+/* Separate backdrop — blur on the full overlay breaks link taps on iOS Safari */
+.landing-mobile-panel__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(8, 2, 12, 0.6);
+    opacity: 0;
+    transition: opacity 0.25s ease;
+}
+
+.landing-mobile-panel.is-open .landing-mobile-panel__backdrop {
+    opacity: 1;
+}
+
 .landing-mobile-menu {
+    position: relative;
+    z-index: 1;
     background: linear-gradient(180deg, var(--landing-purple-dark) 0%, var(--landing-purple-deep) 100%);
     border-bottom: 1px solid rgba(255, 255, 255, 0.1);
     padding: 1rem 1.25rem 1.5rem;
-    transform: translateY(-8px);
     opacity: 0;
     transition: transform 0.25s ease, opacity 0.25s ease;
+    transform: translate3d(0, -8px, 0);
 }
 
 .landing-mobile-panel.is-open .landing-mobile-menu {
-    transform: translateY(0);
+    transform: translate3d(0, 0, 0);
     opacity: 1;
 }
 
@@ -271,7 +285,8 @@
     margin-bottom: 1.25rem;
 }
 
-.landing-mobile-menu__links a {
+.landing-mobile-menu__links a,
+.landing-mobile-menu__actions a {
     display: block;
     padding: 0.75rem 0.85rem;
     border-radius: 10px;
@@ -280,6 +295,9 @@
     font-weight: 600;
     color: rgba(255, 255, 255, 0.92);
     text-decoration: none;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: rgba(255, 255, 255, 0.12);
+    cursor: pointer;
 }
 
 .landing-mobile-menu__links a:hover {

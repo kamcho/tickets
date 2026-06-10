@@ -24,7 +24,7 @@
             </a>
 
             {% if customer %}
-            <ul class="nav-menu portal-nav-menu">
+            <ul class="nav-menu portal-nav-menu" id="portal-nav-menu">
                 <li class="nav-item">
                     <a href="{% url 'portal_ticket_list' %}" class="nav-link {% if 'portal/tickets' in request.path and 'create' not in request.path %}active{% endif %}">
                         <i data-feather="inbox" style="width: 16px; height: 16px;"></i> My Tickets
@@ -42,6 +42,9 @@
                     {% csrf_token %}
                     <button type="submit" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.8rem;">Sign out</button>
                 </form>
+                <button type="button" class="nav-toggle portal-nav-toggle" id="portal-nav-toggle" aria-label="Open navigation menu" aria-expanded="false" aria-controls="portal-nav-menu">
+                    <i data-feather="menu" class="nav-toggle-icon"></i>
+                </button>
             </div>
             {% else %}
             <div class="nav-actions nav-auth-links">
@@ -58,6 +61,7 @@
             </div>
             {% endif %}
         </div>
+        <div class="nav-backdrop" id="portal-nav-backdrop" aria-hidden="true"></div>
     </nav>
 
     <main class="main-wrapper">
@@ -98,7 +102,58 @@
 {% else %}
 {% include 'core/includes/floating_buttons.html' with show_assistant_fab=False %}
 {% endif %}
-<script>feather.replace();</script>
+<script>
+    feather.replace();
+
+    (function () {
+        function setPortalNavOpen(isOpen) {
+            const toggleBtn = document.getElementById('portal-nav-toggle');
+            const navMenu = document.getElementById('portal-nav-menu');
+            const backdrop = document.getElementById('portal-nav-backdrop');
+            if (!toggleBtn || !navMenu) return;
+
+            navMenu.classList.toggle('show', isOpen);
+            document.body.classList.toggle('nav-open', isOpen);
+            if (backdrop) {
+                backdrop.classList.toggle('show', isOpen);
+                backdrop.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+            }
+            toggleBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+            toggleBtn.setAttribute('aria-label', isOpen ? 'Close navigation menu' : 'Open navigation menu');
+            toggleBtn.innerHTML = isOpen
+                ? '<i data-feather="x" class="nav-toggle-icon"></i>'
+                : '<i data-feather="menu" class="nav-toggle-icon"></i>';
+            feather.replace();
+        }
+
+        function closePortalNav() {
+            setPortalNavOpen(false);
+        }
+
+        const toggleBtn = document.getElementById('portal-nav-toggle');
+        const navMenu = document.getElementById('portal-nav-menu');
+        const backdrop = document.getElementById('portal-nav-backdrop');
+
+        if (toggleBtn && navMenu) {
+            toggleBtn.addEventListener('click', function (e) {
+                e.stopPropagation();
+                setPortalNavOpen(!navMenu.classList.contains('show'));
+            });
+            if (backdrop) {
+                backdrop.addEventListener('click', closePortalNav);
+            }
+            navMenu.querySelectorAll('.nav-link').forEach(function (link) {
+                link.addEventListener('click', closePortalNav);
+            });
+            window.addEventListener('keydown', function (e) {
+                if (e.key === 'Escape') closePortalNav();
+            });
+            window.addEventListener('resize', function () {
+                if (window.innerWidth > 992) closePortalNav();
+            });
+        }
+    })();
+</script>
 {% block extra_js %}{% endblock %}
 </body>
 </html>

@@ -5,7 +5,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Metrolinks Solution Ltd - Your Trusted ISP in Kenya</title>
-    <link rel="stylesheet" href="{% static 'core/css/landing.css' %}?v=1">
+    <link rel="stylesheet" href="{% static 'core/css/landing.css' %}?v=2">
     <link rel="stylesheet" href="{% static 'core/css/floating-buttons.css' %}?v=3">
     <script src="https://cdn.tailwindcss.com"></script>
     <style>
@@ -712,6 +712,15 @@
                 document.body.style.overflow = 'hidden';
             }
 
+            function headerOffset() {
+                return header ? header.offsetHeight : 72;
+            }
+
+            function scrollToSection(target) {
+                const top = target.getBoundingClientRect().top + window.pageYOffset - headerOffset();
+                window.scrollTo({ top: Math.max(0, top), behavior: 'smooth' });
+            }
+
             if (toggle && panel) {
                 toggle.addEventListener('click', function () {
                     if (panel.classList.contains('is-open')) {
@@ -720,20 +729,30 @@
                         openMobileMenu();
                     }
                 });
-                panel.addEventListener('click', function (e) {
-                    if (e.target === panel) closeMobileMenu();
-                });
+                const backdrop = document.getElementById('landing-mobile-backdrop');
+                if (backdrop) {
+                    backdrop.addEventListener('click', closeMobileMenu);
+                }
             }
 
-            document.querySelectorAll('a[href^="#"]').forEach(function (anchor) {
+            document.querySelectorAll(
+                '.landing-nav a[href^="#"], .landing-mobile-menu a[href^="#"]'
+            ).forEach(function (anchor) {
                 anchor.addEventListener('click', function (e) {
-                    const href = this.getAttribute('href');
+                    const href = anchor.getAttribute('href');
                     if (!href || href === '#') return;
                     const target = document.querySelector(href);
-                    if (target) {
-                        e.preventDefault();
-                        target.scrollIntoView({ behavior: 'smooth', block: 'start' });
-                    }
+                    if (!target) return;
+                    e.preventDefault();
+                    closeMobileMenu();
+                    requestAnimationFrame(function () {
+                        scrollToSection(target);
+                    });
+                });
+            });
+
+            document.querySelectorAll('.landing-mobile-menu a:not([href^="#"])').forEach(function (anchor) {
+                anchor.addEventListener('click', function () {
                     closeMobileMenu();
                 });
             });
