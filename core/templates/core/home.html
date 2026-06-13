@@ -86,12 +86,13 @@
         <div class="form-group" style="width: 160px; margin-bottom: 0;">
             <label for="status" class="form-label">Status</label>
             <select name="status" id="status" class="form-input">
-                <option value="active" {% if filters.status == 'active' %}selected{% endif %}>Active (Open & In Progress & On Hold)</option>
+                <option value="" {% if filters.status == '' %}selected{% endif %}>All Active (excl. Resolved &amp; Closed)</option>
                 <option value="Open" {% if filters.status == 'Open' %}selected{% endif %}>Open</option>
                 <option value="In Progress" {% if filters.status == 'In Progress' %}selected{% endif %}>In Progress</option>
                 <option value="On Hold" {% if filters.status == 'On Hold' %}selected{% endif %}>On Hold</option>
                 <option value="Resolved" {% if filters.status == 'Resolved' %}selected{% endif %}>Resolved</option>
                 <option value="Closed" {% if filters.status == 'Closed' %}selected{% endif %}>Closed</option>
+                <option value="resolved_closed" {% if filters.status == 'resolved_closed' %}selected{% endif %}>Resolved &amp; Closed</option>
             </select>
         </div>
 

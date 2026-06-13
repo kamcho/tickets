@@ -128,7 +128,6 @@ def home_view(request):
     category_filter = request.GET.get('category', '')
     search_query = request.GET.get('search', '')
 
-    ACTIVE_STATUSES = ['Open', 'In Progress', 'On Hold']
     RESOLVED_STATUSES = ['Resolved', 'Closed']
 
     tickets = Ticket.objects.prefetch_related(
@@ -143,15 +142,13 @@ def home_view(request):
     if is_agent:
         tickets = tickets.filter(ticketassignment__assigned_to=request.user)
 
-    # Default: hide Resolved/Closed unless the user explicitly filters for them
-    if status_filter in ('', 'active'):
-        tickets = tickets.filter(status__in=ACTIVE_STATUSES)
-        status_filter = 'active'
-    elif status_filter not in RESOLVED_STATUSES:
-        # A specific non-resolved status was requested (e.g. Open, In Progress)
-        tickets = tickets.filter(status=status_filter)
+    # Default: hide only Resolved/Closed; show all other statuses unless a filter is applied
+    if status_filter == '':
+        tickets = tickets.exclude(status__in=RESOLVED_STATUSES)
+    elif status_filter == 'resolved_closed':
+        tickets = tickets.filter(status__in=RESOLVED_STATUSES)
     else:
-        # Resolved or Closed explicitly requested
+        # A specific status was requested (Open, In Progress, On Hold, Resolved, Closed)
         tickets = tickets.filter(status=status_filter)
     if priority_filter:
         tickets = tickets.filter(priority=priority_filter)
@@ -239,6 +236,7 @@ def _require_admin(user):
 def _apply_ticket_assignment(ticket, form, user, sms_source='ticket_create_page',
                              at_creation=False):
     from core.sms_debug import sms_debug
+    from core.models import TicketAssignment
 
     if not _user_can_assign_tickets(user):
         sms_debug(sms_source, 'assign_skip', reason='user_cannot_assign', user_role=user.role)
@@ -254,11 +252,18 @@ def _apply_ticket_assignment(ticket, form, user, sms_source='ticket_create_page'
         agent_id=assigned_to.pk,
         agent_email=assigned_to.email,
     )
-    from core.notifications import assign_ticket_to_agent
-    # When at_creation=True the customer SMS is handled by notify_ticket_created
-    # (combined message), so we suppress it here to avoid a duplicate.
-    assign_ticket_to_agent(ticket, assigned_to, source=sms_source,
-                           notify_customer=not at_creation)
+
+    if at_creation:
+        # Only persist the DB record — notifications are handled entirely by
+        # notify_ticket_created(agent=assigned_to) called right after this,
+        # which sends one combined customer SMS + one agent SMS.
+        TicketAssignment.objects.filter(ticket=ticket).delete()
+        TicketAssignment.objects.create(ticket=ticket, assigned_to=assigned_to)
+        sms_debug(sms_source, 'assign_db_only_at_creation', ticket_id=ticket.ticket_id)
+    else:
+        from core.notifications import assign_ticket_to_agent
+        assign_ticket_to_agent(ticket, assigned_to, source=sms_source)
+
     return assigned_to
 
 
