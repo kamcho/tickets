@@ -1,9 +1,10 @@
 from django.conf import settings
 from django_hosts import patterns, host
 
-# In development, bare localhost serves landing + portal routes (core.urls).
-# In production, bare host serves the marketing site only (core.urls_main).
-_default_urlconf = 'core.urls' if settings.DEBUG else 'core.urls_main'
+# In development (or temporary IP access), bare host serves landing + portal (core.urls).
+# In normal production, bare host serves marketing only (core.urls_main); use tickets.* for portal.
+_use_combined = settings.DEBUG or getattr(settings, 'SERVE_COMBINED_ON_DEFAULT_HOST', False)
+_default_urlconf = 'core.urls' if _use_combined else 'core.urls_main'
 
 host_patterns = patterns(
     '',

@@ -1,6 +1,6 @@
 #!/bin/bash
-# One-shot: copy systemd units and enable services (run on the VPS with sudo).
-# Usage: sudo bash deploy/install-systemd.sh
+# Copy systemd units for Metrolinks (paths default to /srv/metrolinks).
+# Prefer first-time: sudo bash deploy/beside-somasmart.sh
 set -euo pipefail
 
 APP_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -15,10 +15,9 @@ cp "$UNIT_DIR"/metrolinks-gunicorn.service /etc/systemd/system/
 cp "$UNIT_DIR"/metrolinks-celery.service /etc/systemd/system/
 cp "$UNIT_DIR"/metrolinks-celerybeat.service /etc/systemd/system/
 
-# If app is not at /var/www/metrolinks, rewrite paths in the installed units
-if [ "$APP_DIR" != "/var/www/metrolinks" ]; then
+if [ "$APP_DIR" != "/srv/metrolinks" ]; then
   for f in metrolinks-gunicorn metrolinks-celery metrolinks-celerybeat; do
-    sed -i "s|/var/www/metrolinks|$APP_DIR|g" "/etc/systemd/system/${f}.service"
+    sed -i "s|/srv/metrolinks|$APP_DIR|g" "/etc/systemd/system/${f}.service"
   done
 fi
 

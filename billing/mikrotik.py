@@ -86,12 +86,12 @@ def connection_from_router(router):
     )
 
 
-def get_default_router():
+def get_default_router(*, vendor=None):
     from core.models import NetworkRouter
-    return (
-        NetworkRouter.objects.filter(is_active=True, is_default=True).first()
-        or NetworkRouter.objects.filter(is_active=True).order_by('id').first()
-    )
+    qs = NetworkRouter.objects.filter(is_active=True)
+    if vendor is not None:
+        qs = qs.filter(vendor=vendor)
+    return qs.filter(is_default=True).first() or qs.order_by('id').first()
 
 
 def resolve_connection(*, router=None, account=None):

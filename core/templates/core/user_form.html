@@ -65,9 +65,28 @@
                     <span style="color: var(--danger); font-size: 0.8rem; margin-top: 0.25rem;">{{ form.role.errors.0 }}</span>
                 {% endif %}
                 <span style="color: var(--text-muted); font-size: 0.8rem; margin-top: 0.25rem;">
-                    Admins get full system rights including user creation. Field Agents can see assigned tickets. Receptionists can log tickets.
+                    <strong>Admin</strong> = manager for one ISP (customers, staff, billing). Field Agents see assigned tickets. Receptionists log tickets.
                 </span>
             </div>
+
+            {% if form.vendor %}
+            <div class="form-group" style="margin-bottom: 1.5rem;">
+                <label for="{{ form.vendor.id_for_label }}" class="form-label">ISP vendor (tenant)</label>
+                {{ form.vendor }}
+                {% if form.vendor.help_text %}<span style="color:var(--text-muted); font-size:.8rem;">{{ form.vendor.help_text }}</span>{% endif %}
+                {% if form.vendor.errors %}<span style="color:var(--danger); font-size:.8rem;">{{ form.vendor.errors.0 }}</span>{% endif %}
+            </div>
+            {% endif %}
+
+            {% if form.grant_platform_superadmin %}
+            <div class="form-group" style="margin-bottom: 1.5rem;">
+                <label style="display:flex; align-items:center; gap:.5rem;">
+                    {{ form.grant_platform_superadmin }}
+                    <span>{{ form.grant_platform_superadmin.label }}</span>
+                </label>
+                <span style="color: var(--text-muted); font-size: 0.8rem;">{{ form.grant_platform_superadmin.help_text }}</span>
+            </div>
+            {% endif %}
 
             <!-- Row for Password & Confirm Password -->
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.5rem; margin-bottom: 2.5rem;">

@@ -1,0 +1,32 @@
+{% extends 'core/base.html' %}
+
+{% block title %}{{ title }} — Platform{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:1.5rem;">
+    <a href="{% url 'vendor_list' %}" class="btn btn-secondary" style="padding:.5rem 1rem; font-size:.85rem;">
+        <i data-feather="arrow-left" style="width:14px;height:14px;"></i> All vendors
+    </a>
+</div>
+
+<div class="form-container" style="max-width:720px; margin:0 auto;">
+    <div class="card" style="padding:2rem;">
+        <h1 style="font-size:1.5rem; font-weight:800; margin-bottom:1.5rem;">{{ title }}</h1>
+        <form method="post">
+            {% csrf_token %}
+            {% for field in form %}
+            <div class="form-group" style="margin-bottom:1.25rem;">
+                <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.help_text %}<p style="font-size:.8rem; color:var(--text-muted); margin:.25rem 0 0;">{{ field.help_text }}</p>{% endif %}
+                {% for error in field.errors %}<p style="color:var(--danger); font-size:.8rem;">{{ error }}</p>{% endfor %}
+            </div>
+            {% endfor %}
+            <div style="display:flex; gap:1rem; justify-content:flex-end; margin-top:1.5rem;">
+                <a href="{% url 'vendor_list' %}" class="btn btn-secondary">Cancel</a>
+                <button type="submit" class="btn btn-primary">{{ submit_label }}</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

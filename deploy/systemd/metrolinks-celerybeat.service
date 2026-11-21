@@ -1,18 +1,18 @@
 [Unit]
-Description=Metrolinks Celery beat scheduler
+Description=Metrolinks Celery beat — shared VPS with Soma Smart
 After=network.target redis-server.service metrolinks-celery.service
 Requires=redis-server.service
 
 [Service]
 Type=simple
-User=www-data
+User=metrolinks
 Group=www-data
-WorkingDirectory=/var/www/metrolinks
-EnvironmentFile=/var/www/metrolinks/.env
-ExecStart=/var/www/metrolinks/.venv/bin/celery \
+WorkingDirectory=/srv/metrolinks
+EnvironmentFile=/srv/metrolinks/.env
+ExecStart=/srv/metrolinks/.venv/bin/celery \
     -A ticket beat \
     --loglevel=INFO \
-    --schedule=/var/www/metrolinks/tmp/celerybeat-schedule
+    --schedule=/srv/metrolinks/tmp/celerybeat-schedule
 Restart=always
 RestartSec=5
 NoNewPrivileges=true

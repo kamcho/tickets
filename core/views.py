@@ -15,24 +15,39 @@ from .models import (
     TicketAttachments, NetworkRouter, CustomerHomeRouter,
 )
 from .ticket_urls import ticket_created_flash_message
+from core.tenancy import (
+    assign_vendor_on_save,
+    categories_qs as scoped_categories,
+    customers_qs as scoped_customers,
+    get_vendor,
+    plans_qs as scoped_plans,
+    routers_qs as scoped_routers,
+    staff_qs as scoped_staff,
+    tickets_qs as scoped_tickets,
+)
 from .forms import (
     TicketForm, CommentForm, AttachmentForm, UserCreateForm, CustomerForm,
     ProfileForm, ProfilePasswordForm, NetworkRouterForm, CustomerHomeRouterForm,
 )
 
 
+def _staff_routes_on_current_host() -> bool:
+    """IP access or pre-DNS: all routes on one host (no tickets.* subdomain)."""
+    return settings.DEBUG or getattr(settings, 'SERVE_COMBINED_ON_DEFAULT_HOST', False)
+
+
 def redirect_after_login(user):
     if user.role == 'Customer':
         return redirect('portal_ticket_list')
     target = 'admin_dashboard' if user.role == 'Admin' else 'ticket_list'
-    if settings.DEBUG:
+    if _staff_routes_on_current_host():
         return redirect(target)
     return redirect(host_reverse(target, host='tickets'))
 
 
 def redirect_to_portal_home():
     """Send authenticated staff to the ticket list."""
-    if settings.DEBUG:
+    if _staff_routes_on_current_host():
         return redirect('ticket_list')
     return redirect(host_reverse('ticket_list', host='tickets'))
 
@@ -143,7 +158,7 @@ def ticket_list_view(request):
 
     RESOLVED_STATUSES = ['Resolved', 'Closed']
 
-    tickets = Ticket.objects.prefetch_related(
+    tickets = scoped_tickets(request).prefetch_related(
         'categories',
         Prefetch(
             'ticketassignment_set',
@@ -175,18 +190,19 @@ def ticket_list_view(request):
 
     # Compute metrics based on role context
     if is_agent:
-        agent_tickets = Ticket.objects.filter(ticketassignment__assigned_to=request.user)
+        agent_tickets = scoped_tickets(request).filter(ticketassignment__assigned_to=request.user)
         total_count = agent_tickets.count()
         open_count = agent_tickets.filter(status='Open').count()
         pending_count = agent_tickets.filter(status__in=['In Progress', 'On Hold']).count()
         resolved_count = agent_tickets.filter(status__in=['Resolved', 'Closed']).count()
     else:
-        total_count = Ticket.objects.count()
-        open_count = Ticket.objects.filter(status='Open').count()
-        pending_count = Ticket.objects.filter(status__in=['In Progress', 'On Hold']).count()
-        resolved_count = Ticket.objects.filter(status__in=['Resolved', 'Closed']).count()
+        scoped = scoped_tickets(request)
+        total_count = scoped.count()
+        open_count = scoped.filter(status='Open').count()
+        pending_count = scoped.filter(status__in=['In Progress', 'On Hold']).count()
+        resolved_count = scoped.filter(status__in=['Resolved', 'Closed']).count()
 
-    categories = TicketCategory.objects.all()
+    categories = scoped_categories(request)
 
     context = {
         'tickets': tickets,
@@ -238,10 +254,10 @@ def admin_dashboard_view(request):
     since_7d = now - timedelta(days=7)
     prev_since = since - timedelta(days=days)
 
-    customers = MyUser.objects.filter(role='Customer')
-    staff = MyUser.objects.exclude(role='Customer')
+    customers = scoped_customers(request)
+    staff = scoped_staff(request)
 
-    tickets_qs = Ticket.objects.all()
+    tickets_qs = scoped_tickets(request)
     open_statuses = ['Open', 'In Progress', 'On Hold']
 
     los_q = (
@@ -268,7 +284,7 @@ def admin_dashboard_view(request):
         return {'pct': abs(pct), 'dir': 'up' if pct > 0 else ('down' if pct < 0 else 'flat')}
 
     category_breakdown = list(
-        TicketCategory.objects.annotate(
+        scoped_categories(request).annotate(
             open_count=Count(
                 'tickets',
                 filter=Q(tickets__status__in=open_statuses),
@@ -281,7 +297,7 @@ def admin_dashboard_view(request):
     cat_max = max((c.open_count for c in category_breakdown), default=1) or 1
     category_open_total = sum(c.open_count for c in category_breakdown)
 
-    routers = NetworkRouter.objects.filter(is_active=True)
+    routers = scoped_routers(request).filter(is_active=True)
     router_stats = {
         'total': routers.count(),
         'online': routers.filter(status=NetworkRouter.STATUS_ONLINE).count(),
@@ -301,7 +317,7 @@ def admin_dashboard_view(request):
     mpesa = _mpesa_stats(since, prev_since)
 
     agent_workload = list(
-        MyUser.objects.filter(role='Field Agent')
+        scoped_staff(request).filter(role='Field Agent')
         .annotate(
             open_assigned=Count(
                 'ticketassignment',
@@ -867,7 +883,7 @@ def _agent_display_name(user):
 @login_required(login_url='/login/')
 def customer_search_api(request):
     q = request.GET.get('q', '').strip()
-    qs = MyUser.objects.filter(role='Customer').order_by('first_name', 'last_name', 'email')
+    qs = scoped_customers(request).order_by('first_name', 'last_name', 'email')
     if q:
         qs = qs.filter(
             Q(first_name__icontains=q)
@@ -896,7 +912,7 @@ def agent_search_api(request):
         return JsonResponse({'results': [], 'has_more': False})
 
     q = request.GET.get('q', '').strip()
-    qs = MyUser.objects.filter(role='Field Agent').order_by('first_name', 'last_name', 'email')
+    qs = scoped_staff(request).filter(role='Field Agent').order_by('first_name', 'last_name', 'email')
     if q:
         qs = qs.filter(
             Q(first_name__icontains=q)
@@ -918,10 +934,11 @@ def agent_search_api(request):
     })
 
 
-def _hybrid_initial_customer(customer_id):
+def _hybrid_initial_customer(customer_id, request=None):
     if not customer_id:
         return None
-    customer = MyUser.objects.filter(pk=customer_id, role='Customer').first()
+    base = scoped_customers(request) if request else MyUser.objects.filter(role='Customer')
+    customer = base.filter(pk=customer_id, role='Customer').first()
     if not customer:
         return None
     return {
@@ -931,10 +948,11 @@ def _hybrid_initial_customer(customer_id):
     }
 
 
-def _hybrid_initial_agent(agent_id):
+def _hybrid_initial_agent(agent_id, request=None):
     if not agent_id:
         return None
-    agent = MyUser.objects.filter(pk=agent_id, role='Field Agent').first()
+    base = scoped_staff(request) if request else MyUser.objects.filter(role='Field Agent')
+    agent = base.filter(pk=agent_id, role='Field Agent').first()
     if not agent:
         return None
     return {
@@ -959,15 +977,18 @@ def ticket_create_view(request):
 
         sms_debug('ticket_create_page', 'post_received', can_assign=can_assign)
         customer_mode = request.POST.get('customer_mode', 'existing')
-        form = TicketForm(request.POST, can_assign=can_assign)
+        form = TicketForm(request.POST, can_assign=can_assign, vendor=get_vendor(request))
         create_new_customer = customer_mode == 'new'
 
         if create_new_customer:
-            customer_form = CustomerForm(request.POST, prefix='new_customer')
+            customer_form = CustomerForm(
+                request.POST, prefix='new_customer', vendor=get_vendor(request),
+            )
             if customer_form.is_valid() and form.is_valid():
                 customer = customer_form.save()
                 ticket = form.save(commit=False)
                 ticket.customer = customer
+                assign_vendor_on_save(ticket, request)
                 ticket = _save_ticket_with_attachment(
                     request, ticket, form=form, sms_source='ticket_create_page',
                 )
@@ -998,6 +1019,7 @@ def ticket_create_view(request):
             messages.error(request, "Please correct the errors below.")
         elif form.is_valid():
             ticket = form.save(commit=False)
+            assign_vendor_on_save(ticket, request)
             ticket = _save_ticket_with_attachment(
                 request, ticket, form=form, sms_source='ticket_create_page',
             )
@@ -1025,7 +1047,7 @@ def ticket_create_view(request):
         else:
             messages.error(request, "Please correct the errors below.")
     else:
-        form = TicketForm(can_assign=can_assign)
+        form = TicketForm(can_assign=can_assign, vendor=get_vendor(request))
 
     customer_id = request.POST.get('customer') if request.method == 'POST' else None
     agent_id = request.POST.get('assigned_to') if request.method == 'POST' and can_assign else None
@@ -1035,13 +1057,13 @@ def ticket_create_view(request):
         "customer_form": customer_form,
         "customer_mode": customer_mode,
         "can_assign": can_assign,
-        "customer_search_initial": _hybrid_initial_customer(customer_id),
-        "agent_search_initial": _hybrid_initial_agent(agent_id),
+        "customer_search_initial": _hybrid_initial_customer(customer_id, request),
+        "agent_search_initial": _hybrid_initial_agent(agent_id, request),
     })
 
 @login_required(login_url='/login/')
 def ticket_detail_view(request, ticket_id):
-    ticket = get_object_or_404(Ticket, ticket_id=ticket_id)
+    ticket = get_object_or_404(scoped_tickets(request), ticket_id=ticket_id)
     
     # Process actions (POST requests)
     if request.method == "POST":
@@ -1083,7 +1105,7 @@ def ticket_detail_view(request, ticket_id):
             if _user_can_assign_tickets(request.user):
                 assigned_to_id = request.POST.get('assigned_to')
                 if assigned_to_id:
-                    assigned_user = MyUser.objects.filter(
+                    assigned_user = scoped_staff(request).filter(
                         id=assigned_to_id, role='Field Agent',
                     ).first()
                     if not assigned_user:
@@ -1140,7 +1162,7 @@ def ticket_detail_view(request, ticket_id):
     attachments = TicketAttachments.objects.filter(ticket=ticket).order_by('uploaded_at')
     current_assignment = TicketAssignment.objects.filter(ticket=ticket).first()
     
-    field_agents = MyUser.objects.filter(role='Field Agent').order_by(
+    field_agents = scoped_staff(request).filter(role='Field Agent').order_by(
         'first_name', 'last_name', 'email',
     )
 
@@ -1216,7 +1238,7 @@ def user_list_view(request):
     _require_admin(request.user)
 
     users = list(
-        MyUser.objects.exclude(role='Customer').order_by('-date_joined')
+        scoped_staff(request).order_by('-date_joined')
     )
     user_rows = _build_user_assignment_rows(users)
     ticket_statuses = [status for status, _ in Ticket.STATUS]
@@ -1238,23 +1260,26 @@ def user_create_view(request):
     _require_admin(request.user)
         
     if request.method == "POST":
-        form = UserCreateForm(request.POST)
+        form = UserCreateForm(request.POST, acting_user=request.user)
         if form.is_valid():
             user = form.save(commit=False)
             user.set_password(form.cleaned_data['password'])
-            
-            # Elevate Admin user permissions
+            user.is_superuser = False
             if user.role == 'Admin':
                 user.is_staff = True
+            if form.cleaned_data.get('grant_platform_superadmin'):
                 user.is_superuser = True
-                
+                user.is_staff = True
+                user.vendor = None
+            elif not user.vendor_id:
+                assign_vendor_on_save(user, request)
             user.save()
             messages.success(request, f"User {user.email} created successfully!")
             return redirect("user_list")
         else:
             messages.error(request, "Please correct the errors below.")
     else:
-        form = UserCreateForm()
+        form = UserCreateForm(acting_user=request.user)
         
     return render(request, "core/user_form.html", {"form": form})
 
@@ -1265,7 +1290,7 @@ CUSTOMERS_PER_PAGE = 100
 def customer_list_view(request):
     _require_admin_or_receptionist(request.user)
     search_query = request.GET.get('search', '').strip()
-    customers_qs = MyUser.objects.filter(role='Customer').annotate(
+    customers_qs = scoped_customers(request).annotate(
         ticket_count=Count('customer_tickets'),
     ).order_by('-date_joined')
 
@@ -1285,8 +1310,8 @@ def customer_list_view(request):
         'page_obj': page_obj,
         'customers': page_obj,
         'metrics': {
-            'total_customers': MyUser.objects.filter(role='Customer').count(),
-            'total_tickets': Ticket.objects.filter(customer__isnull=False).count(),
+            'total_customers': scoped_customers(request).count(),
+            'total_tickets': scoped_tickets(request).filter(customer__isnull=False).count(),
         },
         'search': search_query,
     }
@@ -1297,7 +1322,7 @@ def customer_create_view(request):
     _require_admin_or_receptionist(request.user)
 
     if request.method == "POST":
-        form = CustomerForm(request.POST)
+        form = CustomerForm(request.POST, vendor=get_vendor(request))
         if form.is_valid():
             customer = form.save()
             portal_password = (form.cleaned_data.get('portal_password') or '').strip()
@@ -1316,14 +1341,14 @@ def customer_create_view(request):
         else:
             messages.error(request, "Please correct the errors below.")
     else:
-        form = CustomerForm()
+        form = CustomerForm(vendor=get_vendor(request))
 
     return render(request, "core/customer_form.html", {"form": form})
 
 @login_required(login_url='/login/')
 def customer_detail_view(request, pk):
     _require_admin_or_receptionist(request.user)
-    customer = get_object_or_404(MyUser, pk=pk, role='Customer')
+    customer = get_object_or_404(scoped_customers(request), pk=pk)
 
     if request.method == 'POST':
         action = request.POST.get('action')
@@ -1356,7 +1381,7 @@ def customer_detail_view(request, pk):
             messages.success(request, f"Home router '{home.display_name}' marked inactive.")
             return redirect('customer_detail', pk=customer.pk)
 
-    tickets = Ticket.objects.filter(customer=customer).order_by('-created_at')
+    tickets = scoped_tickets(request).filter(customer=customer).order_by('-created_at')
 
     open_count = tickets.filter(status='Open').count()
     in_progress_count = tickets.filter(status='In Progress').count()
@@ -1471,7 +1496,7 @@ def router_list_view(request):
     _require_admin(request.user)
 
     search_query = (request.GET.get('search') or '').strip()
-    routers_qs = NetworkRouter.objects.all().order_by('name')
+    routers_qs = scoped_routers(request).order_by('name')
     if search_query:
         routers_qs = routers_qs.filter(
             Q(name__icontains=search_query)
@@ -1480,7 +1505,7 @@ def router_list_view(request):
             | Q(ip_address__icontains=search_query)
         )
 
-    all_routers = list(NetworkRouter.objects.all())
+    all_routers = list(scoped_routers(request))
     metrics = {
         'total': len(all_routers),
         'active': sum(1 for r in all_routers if r.is_active),
@@ -1502,7 +1527,9 @@ def router_create_view(request):
     if request.method == 'POST':
         form = NetworkRouterForm(request.POST)
         if form.is_valid():
-            router = form.save()
+            router = form.save(commit=False)
+            assign_vendor_on_save(router, request)
+            router.save()
             messages.success(
                 request,
                 f"Router '{router.name}' added"
@@ -1529,7 +1556,7 @@ def router_create_view(request):
 @login_required(login_url='/login/')
 def router_edit_view(request, pk):
     _require_admin(request.user)
-    router = get_object_or_404(NetworkRouter, pk=pk)
+    router = get_object_or_404(scoped_routers(request), pk=pk)
 
     if request.method == 'POST':
         form = NetworkRouterForm(request.POST, instance=router)

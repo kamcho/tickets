@@ -72,6 +72,9 @@ if not SITE_BASE_URL and not DEBUG:
 # Max options returned in hybrid search dropdowns (customers, agents, etc.)
 HYBRID_SEARCH_RESULT_LIMIT = int(os.getenv('HYBRID_SEARCH_RESULT_LIMIT', '20'))
 
+# Multi-ISP: default tenant when host/user does not resolve a vendor
+DEFAULT_VENDOR_SLUG = os.getenv('DEFAULT_VENDOR_SLUG', 'metrolinks')
+
 # --- AI Assistant (web + WhatsApp) ---
 # OpenAI performs all intent understanding and tool selection (tool_choice=auto).
 # Django only executes tools returned in the API response.
@@ -194,6 +197,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'core.middleware.VendorMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'django_hosts.middleware.HostsResponseMiddleware',
@@ -202,7 +206,12 @@ MIDDLEWARE = [
 ROOT_URLCONF = 'ticket.urls'
 ROOT_HOSTCONF = 'ticket.hosts'
 # Bare host (127.0.0.1 / localhost) uses this named pattern. In dev, 'default' includes /login/.
-DEFAULT_HOST = 'default' if DEBUG else 'www'
+# Temporary IP / single-host access (e.g. http://VPS_IP:8080) before DNS + TLS.
+SERVE_COMBINED_ON_DEFAULT_HOST = os.getenv(
+    'SERVE_COMBINED_ON_DEFAULT_HOST', 'False',
+).lower() in ('true', '1', 't', 'y', 'yes')
+
+DEFAULT_HOST = 'default' if (DEBUG or SERVE_COMBINED_ON_DEFAULT_HOST) else 'www'
 # Required by django-hosts reverse() for www/tickets subdomains on the VPS.
 PARENT_HOST = os.getenv(
     'PARENT_HOST',
@@ -262,7 +271,8 @@ if DB_ENGINE == 'mysql':
             },
         }
     }
-elif DB_ENGINE == 'postgresql':
+elif DB_ENGINE in ('postgresql', 'postgres'):
+    # Same engine Soma Smart (Elearning) uses on the shared VPS.
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.postgresql',
@@ -316,7 +326,8 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
-STATIC_URL = 'static/'
+# Leading slash required — relative `static/` breaks CSS on /login/, /tickets/, etc.
+STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 
 # When DEBUG=False, run collectstatic before deploy. If staticfiles/ is missing (local

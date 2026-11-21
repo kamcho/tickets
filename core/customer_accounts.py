@@ -41,7 +41,7 @@ def _email_from_phone(phone):
     return f'customer_{digits}@metrolinks.local'
 
 
-def create_customer_user(contact_name, phone, password, email='', address='', location=''):
+def create_customer_user(contact_name, phone, password, email='', address='', location='', vendor=None):
     """Create or update MyUser with role=Customer. Email is optional — derived from phone if omitted."""
     phone_normalized = normalize_kenya_phone(phone)
     if not phone_normalized:
@@ -57,16 +57,19 @@ def create_customer_user(contact_name, phone, password, email='', address='', lo
     if User.objects.filter(email__iexact=email).exclude(role='Customer').exists():
         raise ValueError('This email is already used by a staff account.')
 
-    # Also try to find by phone in case they registered without email
+    cust_qs = User.objects.filter(role='Customer')
+    if vendor:
+        cust_qs = cust_qs.filter(vendor=vendor)
+
     existing_by_phone = None
     key = phone_match_key(phone_normalized)
     if key:
-        for u in User.objects.filter(role='Customer'):
+        for u in cust_qs:
             if phone_match_key(u.phone) == key:
                 existing_by_phone = u
                 break
 
-    user = User.objects.filter(email__iexact=email, role='Customer').first() or existing_by_phone
+    user = cust_qs.filter(email__iexact=email).first() or existing_by_phone
     if user:
         user.first_name = first_name
         user.last_name = last_name or user.last_name
@@ -75,33 +78,26 @@ def create_customer_user(contact_name, phone, password, email='', address='', lo
         user.location = location or user.location
         if password:
             user.set_password(password)
+        if vendor and not user.vendor_id:
+            user.vendor = vendor
         user.save()
     else:
+        extra = dict(
+            first_name=first_name,
+            last_name=last_name or '-',
+            phone=phone_normalized,
+            role='Customer',
+            address=address or '',
+            location=location or '',
+            is_staff=False,
+            is_active=True,
+        )
+        if vendor:
+            extra['vendor'] = vendor
         if password:
-            user = User.objects.create_user(
-                email=email,
-                password=password,
-                first_name=first_name,
-                last_name=last_name or '-',
-                phone=phone_normalized,
-                role='Customer',
-                address=address or '',
-                location=location or '',
-                is_staff=False,
-                is_active=True,
-            )
+            user = User.objects.create_user(email=email, password=password, **extra)
         else:
-            user = User(
-                email=email,
-                first_name=first_name,
-                last_name=last_name or '-',
-                phone=phone_normalized,
-                role='Customer',
-                address=address or '',
-                location=location or '',
-                is_staff=False,
-                is_active=True,
-            )
+            user = User(email=email, **extra)
             user.set_unusable_password()
             user.save()
     return user

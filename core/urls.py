@@ -9,6 +9,7 @@ from .views import (
     customer_search_api, agent_search_api,
     router_list_view, router_create_view, router_edit_view,
 )
+from .views_vendors import vendor_list_view, vendor_create_view, vendor_edit_view
 from .views_import import customer_import_view
 from .views_assistant import (
     assistant_page, assistant_chat_api, assistant_chat_stream_api,
@@ -39,6 +40,9 @@ urlpatterns = [
     path("routers/", router_list_view, name="router_list"),
     path("routers/create/", router_create_view, name="router_create"),
     path("routers/<int:pk>/edit/", router_edit_view, name="router_edit"),
+    path("vendors/", vendor_list_view, name="vendor_list"),
+    path("vendors/create/", vendor_create_view, name="vendor_create"),
+    path("vendors/<int:pk>/edit/", vendor_edit_view, name="vendor_edit"),
     path("api/customers/search/", customer_search_api, name="customer_search_api"),
     path("api/agents/search/", agent_search_api, name="agent_search_api"),
     path("portal/", portal_home, name="portal_home"),

@@ -4,6 +4,27 @@ from django.contrib.auth.models import AbstractUser, BaseUserManager
 from core.phone_utils import normalize_kenya_phone
 
 
+class Vendor(models.Model):
+    """One ISP / company on the shared platform (multi-tenant)."""
+
+    name = models.CharField(max_length=200)
+    slug = models.SlugField(max_length=80, unique=True)
+    is_active = models.BooleanField(default=True, db_index=True)
+    phone_primary = models.CharField(max_length=20, blank=True, default='')
+    phone_secondary = models.CharField(max_length=20, blank=True, default='')
+    email = models.EmailField(blank=True, default='')
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = 'ISP vendor'
+        verbose_name_plural = 'ISP vendors'
+
+    def __str__(self):
+        return self.name
+
+
 class MyUserManager(BaseUserManager):
     """Custom manager for MyUser model that uses email instead of username."""
 
@@ -62,6 +83,14 @@ class MyUser(AbstractUser):
         max_length=500, blank=True, default='',
         help_text='Google Maps link or location address',
     )
+    vendor = models.ForeignKey(
+        Vendor,
+        on_delete=models.PROTECT,
+        null=True,
+        blank=True,
+        related_name='users',
+        help_text='ISP this account belongs to. Blank only for platform super-admins.',
+    )
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['first_name', 'last_name', 'phone']
 
@@ -89,7 +118,20 @@ class MyUser(AbstractUser):
 
 
 class TicketCategory(models.Model):
+    vendor = models.ForeignKey(
+        Vendor, on_delete=models.CASCADE, related_name='ticket_categories',
+        null=True, blank=True,
+    )
     name = models.CharField(max_length=100)
+
+    class Meta:
+        constraints = [
+            models.UniqueConstraint(
+                fields=['vendor', 'name'],
+                name='core_unique_vendor_ticket_category',
+            ),
+        ]
+        ordering = ['name']
 
     def __str__(self):
         return self.name
@@ -110,6 +152,10 @@ class Ticket(models.Model):
         ('Low', 'Low'),
     ]
     ticket_id = models.CharField(max_length=20)
+    vendor = models.ForeignKey(
+        Vendor, on_delete=models.PROTECT, related_name='tickets',
+        null=True, blank=True,
+    )
     customer = models.ForeignKey(
         MyUser,
         on_delete=models.SET_NULL,
@@ -131,6 +177,8 @@ class Ticket(models.Model):
         if not self.ticket_id:
             import uuid
             self.ticket_id = f"TKT-{uuid.uuid4().hex[:8].upper()}"
+        if not self.vendor_id and self.customer_id and self.customer.vendor_id:
+            self.vendor_id = self.customer.vendor_id
         super().save(*args, **kwargs)
 
     def __str__(self):
@@ -260,6 +308,10 @@ class NetworkRouter(models.Model):
         (STATUS_UNKNOWN, 'Unknown'),
     )
 
+    vendor = models.ForeignKey(
+        Vendor, on_delete=models.CASCADE, related_name='network_routers',
+        null=True, blank=True,
+    )
     name = models.CharField(max_length=120)
     ip_address = models.GenericIPAddressField(
         null=True,
@@ -314,6 +366,12 @@ class NetworkRouter(models.Model):
         ordering = ['name']
         verbose_name = 'Network router'
         verbose_name_plural = 'Network routers'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['vendor', 'name'],
+                name='core_unique_vendor_router_name',
+            ),
+        ]
 
     def __str__(self):
         return f'{self.name} ({self.get_status_display()})'
@@ -321,9 +379,9 @@ class NetworkRouter(models.Model):
     def save(self, *args, **kwargs):
         super().save(*args, **kwargs)
         if self.is_default and self.is_active:
-            NetworkRouter.objects.filter(is_default=True).exclude(pk=self.pk).update(
-                is_default=False,
-            )
+            NetworkRouter.objects.filter(
+                vendor_id=self.vendor_id, is_default=True,
+            ).exclude(pk=self.pk).update(is_default=False)
 
     @property
     def effective_api_host(self):

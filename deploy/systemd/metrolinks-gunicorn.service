@@ -1,24 +1,27 @@
 [Unit]
-Description=Metrolinks Gunicorn (Django)
-After=network.target mysql.service mariadb.service redis-server.service
-Wants=redis-server.service
+Description=Metrolinks Gunicorn (Django) — shared VPS with Soma Smart
+After=network.target postgresql.service redis-server.service
+Wants=postgresql.service redis-server.service
 
 [Service]
 Type=simple
-User=www-data
+User=metrolinks
 Group=www-data
-WorkingDirectory=/var/www/metrolinks
-EnvironmentFile=/var/www/metrolinks/.env
-ExecStart=/var/www/metrolinks/.venv/bin/gunicorn \
-    --config /var/www/metrolinks/deploy/gunicorn.conf.py \
+WorkingDirectory=/srv/metrolinks
+EnvironmentFile=/srv/metrolinks/.env
+
+# Socket dir: /run/metrolinks/metrolinks.sock (see deploy/gunicorn.conf.py)
+RuntimeDirectory=metrolinks
+RuntimeDirectoryMode=0755
+
+ExecStart=/srv/metrolinks/.venv/bin/gunicorn \
+    --config /srv/metrolinks/deploy/gunicorn.conf.py \
     ticket.wsgi:application
 ExecReload=/bin/kill -s HUP $MAINPID
 KillMode=mixed
 TimeoutStopSec=30
 Restart=always
 RestartSec=5
-
-# Hardening
 NoNewPrivileges=true
 PrivateTmp=true
 

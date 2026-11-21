@@ -30,10 +30,12 @@ def portal_urls(request):
             staff_login = '/login/'
 
     elif not client_login and not getattr(settings, 'DEBUG', True):
-        client_login = 'https://tickets.metrolinkssolutionltd.co.ke/portal/login/'
+        if not getattr(settings, 'SERVE_COMBINED_ON_DEFAULT_HOST', False):
+            client_login = 'https://tickets.metrolinkssolutionltd.co.ke/portal/login/'
 
     if not staff_login and not getattr(settings, 'DEBUG', True):
-        staff_login = 'https://tickets.metrolinkssolutionltd.co.ke/login/'
+        if not getattr(settings, 'SERVE_COMBINED_ON_DEFAULT_HOST', False):
+            staff_login = 'https://tickets.metrolinkssolutionltd.co.ke/login/'
 
     return {
         'client_portal_login_url': client_login or '/portal/login/',
@@ -72,15 +74,49 @@ def staff_permissions(request):
 
     )
 
-    return {'can_create_ticket': can_create}
+    from core.tenancy import get_vendor, is_platform_superadmin
+
+    vendor = get_vendor(request) if request else None
+    show_tenant = (
+        user is not None
+        and user.is_authenticated
+        and getattr(user, 'vendor_id', None)
+        and not is_platform_superadmin(user)
+    )
+    return {
+        'can_create_ticket': can_create,
+        'is_platform_superadmin': is_platform_superadmin(user),
+        'can_manage_vendors': is_platform_superadmin(user),
+        'tenant_vendor_name': vendor.name if show_tenant and vendor else '',
+        'viewing_all_tenants': is_platform_superadmin(user),
+    }
 
 
 
 
 
 def company_contact(request):
-
     """Office phones, email, and WhatsApp link for footer / floating button."""
+    from core.tenancy import get_vendor, vendor_branding
+    from core.phone_utils import normalize_kenya_phone
+
+    vendor = get_vendor(request) if request else None
+    if vendor:
+        branded = vendor_branding(vendor)
+        primary = branded['company_phone_primary']
+        secondary = branded['company_phone_secondary']
+        email = branded['company_email']
+        wa_digits = normalize_kenya_phone(primary) or ''
+        wa_url = f'https://wa.me/{wa_digits}' if wa_digits else ''
+        primary_tel = normalize_kenya_phone(primary)
+        secondary_tel = normalize_kenya_phone(secondary)
+        return {
+            **branded,
+            'company_phone_primary_tel': f'+{primary_tel}' if primary_tel else primary,
+            'company_phone_secondary_tel': f'+{secondary_tel}' if secondary_tel else secondary,
+            'company_whatsapp_digits': wa_digits,
+            'company_whatsapp_url': wa_url,
+        }
 
     primary = getattr(settings, 'COMPANY_PHONE_PRIMARY', '0792929275')
 

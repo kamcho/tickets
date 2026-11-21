@@ -1,9 +1,33 @@
 from django.contrib import admin
 from .models import (
+    Vendor,
     MyUser, TicketCategory, Ticket, TicketAssignment,
     TicketComments, TicketAttachments, AssistantConversation, AssistantMessage,
     NetworkRouter, CustomerHomeRouter,
 )
+
+
+@admin.register(Vendor)
+class VendorAdmin(admin.ModelAdmin):
+    list_display = ('name', 'slug', 'is_active', 'email', 'updated_at')
+    list_filter = ('is_active',)
+    search_fields = ('name', 'slug', 'email')
+    prepopulated_fields = {'slug': ('name',)}
+
+    def has_module_permission(self, request):
+        return request.user.is_superuser
+
+    def has_view_permission(self, request, obj=None):
+        return request.user.is_superuser
+
+    def has_change_permission(self, request, obj=None):
+        return request.user.is_superuser
+
+    def has_add_permission(self, request):
+        return request.user.is_superuser
+
+    def has_delete_permission(self, request, obj=None):
+        return request.user.is_superuser
 
 
 class AssistantMessageInline(admin.TabularInline):
@@ -20,7 +44,20 @@ class AssistantConversationAdmin(admin.ModelAdmin):
     inlines = [AssistantMessageInline]
 
 
-admin.site.register(MyUser)
+@admin.register(MyUser)
+class MyUserAdmin(admin.ModelAdmin):
+    list_display = ('email', 'role', 'vendor', 'is_superuser', 'is_active')
+    list_filter = ('role', 'vendor', 'is_superuser')
+    search_fields = ('email', 'first_name', 'last_name', 'phone')
+    raw_id_fields = ('vendor',)
+
+    def get_queryset(self, request):
+        qs = super().get_queryset(request)
+        if request.user.is_superuser:
+            return qs
+        if getattr(request.user, 'vendor_id', None):
+            return qs.filter(vendor_id=request.user.vendor_id)
+        return qs.none()
 admin.site.register(TicketCategory)
 admin.site.register(Ticket)
 admin.site.register(TicketAssignment)

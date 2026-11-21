@@ -80,6 +80,15 @@
             <span>Add Customer</span>
         </a>
         {% endif %}
+        {% if is_platform_superadmin %}
+        <p class="app-sidebar__section-label">Platform</p>
+        <a href="{% url 'vendor_list' %}" class="app-sidebar__link {% if '/vendors' in request.path %}active{% endif %}">
+            <i data-feather="layers"></i>
+            <span>ISP vendors</span>
+        </a>
+        {% elif tenant_vendor_name %}
+        <p class="app-sidebar__section-label" title="Your tenant">{{ tenant_vendor_name }}</p>
+        {% endif %}
         {% if user.role == 'Admin' %}
         <a href="{% url 'router_list' %}" class="app-sidebar__link {% if '/routers' in request.path %}active{% endif %}">
             <i data-feather="server"></i>

@@ -1,0 +1,50 @@
+{% extends 'core/base.html' %}
+
+{% block title %}ISP vendors — Platform{% endblock %}
+
+{% block content %}
+<div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:1rem; margin-bottom:1.5rem;">
+    <div>
+        <h1 style="font-size:1.75rem; font-weight:800; margin:0 0 .25rem;">ISP vendors</h1>
+        <p style="color:var(--text-secondary); margin:0; font-size:.9rem;">Platform super-admin — all tenants on this server.</p>
+    </div>
+    <a href="{% url 'vendor_create' %}" class="btn btn-primary">
+        <i data-feather="plus" style="width:16px;height:16px;"></i> Add vendor
+    </a>
+</div>
+
+<div class="card" style="padding:0; overflow:hidden;">
+    <table style="width:100%; border-collapse:collapse; font-size:.9rem;">
+        <thead>
+            <tr style="border-bottom:1px solid var(--border-color); text-align:left;">
+                <th style="padding:1rem 1.25rem;">Vendor</th>
+                <th style="padding:1rem;">Slug</th>
+                <th style="padding:1rem;">Staff</th>
+                <th style="padding:1rem;">Customers</th>
+                <th style="padding:1rem;">Tickets</th>
+                <th style="padding:1rem;">Status</th>
+                <th style="padding:1rem 1.25rem;"></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for v in vendors %}
+            <tr style="border-bottom:1px solid var(--border-color);">
+                <td style="padding:1rem 1.25rem; font-weight:600;">{{ v.name }}</td>
+                <td style="padding:1rem; color:var(--text-muted);"><code>{{ v.slug }}</code></td>
+                <td style="padding:1rem;">{{ v.staff_count }}</td>
+                <td style="padding:1rem;">{{ v.customer_count }}</td>
+                <td style="padding:1rem;">{{ v.ticket_count }}</td>
+                <td style="padding:1rem;">
+                    {% if v.is_active %}<span style="color:var(--success);">Active</span>{% else %}Inactive{% endif %}
+                </td>
+                <td style="padding:1rem 1.25rem;">
+                    <a href="{% url 'vendor_edit' v.pk %}" class="btn btn-secondary" style="padding:.4rem .75rem; font-size:.8rem;">Edit</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="7" style="padding:2rem; color:var(--text-muted);">No vendors yet.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

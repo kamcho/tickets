@@ -13,6 +13,8 @@ from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
 
 from billing.forms import ExpenditureForm, ManualPaymentForm, PullTransactionForm, StkPushForm
+from core.tenancy import expenditures_qs as scoped_expenditures, get_vendor, plans_qs as scoped_plans
+from core.tenancy import assign_vendor_on_save
 from billing.models import Expenditure, MpesaPayment
 from billing.mpesa import MpesaError, mpesa_configured, transaction_status_configured
 from billing.services import (
@@ -36,7 +38,7 @@ def expenditure_list_view(request):
     q = (request.GET.get('q') or '').strip()
     method = (request.GET.get('method') or '').strip()
 
-    qs = Expenditure.objects.all()
+    qs = scoped_expenditures(request)
     if method:
         qs = qs.filter(payment_method=method)
     if q:
@@ -66,7 +68,9 @@ def expenditure_create_view(request):
     if request.method == 'POST':
         form = ExpenditureForm(request.POST)
         if form.is_valid():
-            expense = form.save()
+            expense = form.save(commit=False)
+            assign_vendor_on_save(expense, request)
+            expense.save()
             messages.success(
                 request,
                 f'Expense recorded: {expense.title} — KES {expense.amount}.',
@@ -471,7 +475,7 @@ from billing.services import start_subscription
 @login_required(login_url='/login/')
 def plan_list_view(request):
     _require_billing_staff(request.user)
-    plans = Plan.objects.all()
+    plans = scoped_plans(request)
     return render(request, 'billing/plan_list.html', {'plans': plans})
 
 

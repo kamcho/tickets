@@ -1,18 +1,18 @@
 [Unit]
-Description=Metrolinks Celery worker
+Description=Metrolinks Celery worker — shared VPS with Soma Smart
 After=network.target redis-server.service metrolinks-gunicorn.service
 Requires=redis-server.service
 
 [Service]
 Type=simple
-User=www-data
+User=metrolinks
 Group=www-data
-WorkingDirectory=/var/www/metrolinks
-EnvironmentFile=/var/www/metrolinks/.env
-ExecStart=/var/www/metrolinks/.venv/bin/celery \
+WorkingDirectory=/srv/metrolinks
+EnvironmentFile=/srv/metrolinks/.env
+ExecStart=/srv/metrolinks/.venv/bin/celery \
     -A ticket worker \
     --loglevel=INFO \
-    --concurrency=2
+    --concurrency=1
 Restart=always
 RestartSec=5
 NoNewPrivileges=true

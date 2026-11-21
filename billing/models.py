@@ -128,6 +128,13 @@ class MpesaPayment(models.Model):
 class Expenditure(models.Model):
     """Company spending record (opex / capex style entries)."""
 
+    vendor = models.ForeignKey(
+        'core.Vendor',
+        on_delete=models.CASCADE,
+        related_name='expenditures',
+        null=True, blank=True,
+    )
+
     METHOD_MPESA = 'mpesa'
     METHOD_BANK = 'bank'
     METHOD_CASH = 'cash'
@@ -163,6 +170,12 @@ class Expenditure(models.Model):
 class Plan(models.Model):
     """ISP package / speed tier (monthly)."""
 
+    vendor = models.ForeignKey(
+        'core.Vendor',
+        on_delete=models.CASCADE,
+        related_name='plans',
+        null=True, blank=True,
+    )
     name = models.CharField(max_length=120)
     speed_mbps = models.PositiveIntegerField()
     price = models.DecimalField(max_digits=12, decimal_places=2)
@@ -180,6 +193,12 @@ class Plan(models.Model):
         ordering = ['speed_mbps', 'price']
         verbose_name = 'Plan'
         verbose_name_plural = 'Plans'
+        constraints = [
+            models.UniqueConstraint(
+                fields=['vendor', 'name'],
+                name='billing_unique_vendor_plan_name',
+            ),
+        ]
 
     def __str__(self):
         return f'{self.name} — {self.speed_mbps} Mbps — KES {self.price}'

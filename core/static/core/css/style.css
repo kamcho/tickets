@@ -1230,3 +1230,18 @@ footer,
         height: 28px;
     }
 }
+
+/* Feather / inline SVGs — keep sane size if CSS loads but Tailwind or a sheet fails */
+svg.feather,
+.navbar svg,
+.nav-link svg,
+.btn svg,
+.alert-message svg,
+.dropdown-item svg,
+.theme-toggle svg,
+.sidebar-open-btn svg,
+.ld-stat-icon svg {
+    flex-shrink: 0;
+    max-width: 24px;
+    max-height: 24px;
+}

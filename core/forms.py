@@ -3,10 +3,34 @@ from django.contrib.auth import get_user_model
 from core.form_utils import clean_kenya_mobile_phone
 from .models import (
     Ticket, TicketComments, TicketAttachments, TicketCategory, MyUser,
-    NetworkRouter, CustomerHomeRouter,
+    NetworkRouter, CustomerHomeRouter, Vendor,
 )
+from core.tenancy import is_platform_superadmin
 
 User = get_user_model()
+
+class VendorForm(forms.ModelForm):
+    class Meta:
+        model = Vendor
+        fields = [
+            'name', 'slug', 'is_active',
+            'phone_primary', 'phone_secondary', 'email',
+        ]
+        widgets = {
+            'name': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'Acme Fiber Ltd'}),
+            'slug': forms.TextInput(attrs={'class': 'form-input', 'placeholder': 'acme-fiber'}),
+            'phone_primary': forms.TextInput(attrs={'class': 'form-input'}),
+            'phone_secondary': forms.TextInput(attrs={'class': 'form-input'}),
+            'email': forms.EmailInput(attrs={'class': 'form-input'}),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check'}),
+        }
+
+    def clean_slug(self):
+        slug = (self.cleaned_data.get('slug') or '').strip().lower()
+        if not slug:
+            raise forms.ValidationError('Slug is required (lowercase, hyphens).')
+        return slug
+
 
 class UserCreateForm(forms.ModelForm):
     password = forms.CharField(widget=forms.PasswordInput(attrs={
@@ -20,9 +44,16 @@ class UserCreateForm(forms.ModelForm):
         'autocomplete': 'new-password'
     }))
 
+    grant_platform_superadmin = forms.BooleanField(
+        required=False,
+        label='Platform super-admin (all vendors)',
+        help_text='Only for your platform team — not tenant Admins.',
+        widget=forms.CheckboxInput(attrs={'class': 'form-check'}),
+    )
+
     class Meta:
         model = MyUser
-        fields = ['first_name', 'last_name', 'email', 'phone', 'role']
+        fields = ['first_name', 'last_name', 'email', 'phone', 'role', 'vendor']
         widgets = {
             'first_name': forms.TextInput(attrs={
                 'class': 'form-input',
@@ -45,11 +76,22 @@ class UserCreateForm(forms.ModelForm):
             }),
         }
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, *args, acting_user=None, **kwargs):
         super().__init__(*args, **kwargs)
+        self.acting_user = acting_user
         self.fields['role'].choices = [
             c for c in MyUser.role_choice if c[0] != 'Customer'
         ]
+        if acting_user and is_platform_superadmin(acting_user):
+            self.fields['vendor'].queryset = Vendor.objects.filter(is_active=True).order_by('name')
+            self.fields['vendor'].required = False
+            self.fields['vendor'].widget.attrs['class'] = 'form-input'
+            self.fields['vendor'].help_text = (
+                'Leave blank only when granting platform super-admin (all tenants).'
+            )
+        else:
+            self.fields.pop('vendor', None)
+            self.fields.pop('grant_platform_superadmin', None)
 
     def clean_phone(self):
         return clean_kenya_mobile_phone(self.cleaned_data.get('phone'))
@@ -60,6 +102,19 @@ class UserCreateForm(forms.ModelForm):
         confirm_password = cleaned_data.get('confirm_password')
         if password and confirm_password and password != confirm_password:
             self.add_error('confirm_password', 'Passwords do not match.')
+        grant_sa = cleaned_data.get('grant_platform_superadmin')
+        vendor = cleaned_data.get('vendor')
+        if self.acting_user and is_platform_superadmin(self.acting_user):
+            if grant_sa and vendor:
+                self.add_error(
+                    'vendor',
+                    'Platform super-admins cannot be tied to a single vendor.',
+                )
+            if not grant_sa and not vendor:
+                self.add_error(
+                    'vendor',
+                    'Pick a vendor for this user, or enable platform super-admin.',
+                )
         return cleaned_data
 
 class CustomerChoiceField(forms.ModelChoiceField):
@@ -103,9 +158,12 @@ class TicketForm(forms.ModelForm):
             }),
         }
 
-    def __init__(self, *args, can_assign=False, **kwargs):
+    def __init__(self, *args, can_assign=False, vendor=None, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['categories'].queryset = TicketCategory.objects.order_by('name')
+        cat_qs = TicketCategory.objects.order_by('name')
+        if vendor:
+            cat_qs = cat_qs.filter(vendor=vendor)
+        self.fields['categories'].queryset = cat_qs
         self.fields['categories'].required = True
         self.fields['categories'].label = 'Complaint categories (select all that apply)'
         self.fields['categories'].help_text = 'Choose every category that matches the issue.'
@@ -125,6 +183,12 @@ class TicketForm(forms.ModelForm):
                 )
 
 class CustomerForm(forms.ModelForm):
+    def __init__(self, *args, vendor=None, **kwargs):
+        self.vendor = vendor
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk:
+            self.fields['contact_name'].initial = self.instance.display_name
+
     contact_name = forms.CharField(
         max_length=200,
         widget=forms.TextInput(attrs={
@@ -188,6 +252,7 @@ class CustomerForm(forms.ModelForm):
             password=password,
             address=self.cleaned_data.get('address') or '',
             location=self.cleaned_data.get('location') or '',
+            vendor=self.vendor,
         )
         user.first_name = first
         user.last_name = last or '-'
@@ -195,11 +260,6 @@ class CustomerForm(forms.ModelForm):
         user.location = self.cleaned_data.get('location') or ''
         user.save()
         return user
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        if self.instance and self.instance.pk:
-            self.fields['contact_name'].initial = self.instance.display_name
 
 class CustomerHomeRouterForm(forms.ModelForm):
     class Meta:
