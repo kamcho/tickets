@@ -1,0 +1,22 @@
+[Unit]
+Description=Metrolinks Celery beat scheduler
+After=network.target redis-server.service metrolinks-celery.service
+Requires=redis-server.service
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/metrolinks
+EnvironmentFile=/var/www/metrolinks/.env
+ExecStart=/var/www/metrolinks/.venv/bin/celery \
+    -A ticket beat \
+    --loglevel=INFO \
+    --schedule=/var/www/metrolinks/tmp/celerybeat-schedule
+Restart=always
+RestartSec=5
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,130 @@
+{% extends 'core/base.html' %}
+
+{% block title %}{{ title }} - Metrolinks Support{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 2rem;">
+    <a href="{% url 'router_list' %}" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.85rem;">
+        <i data-feather="arrow-left" style="width: 14px; height: 14px;"></i> Back to Routers
+    </a>
+</div>
+
+<div class="form-container" style="max-width: 760px; margin: 0 auto;">
+    <div class="card" style="padding: 2.5rem;">
+        <div style="margin-bottom: 2rem; border-bottom: 1px solid var(--border-color); padding-bottom: 1rem;">
+            <h1 style="font-size: 1.75rem; font-weight: 800; letter-spacing: -0.025em; margin-bottom: 0.25rem;">{{ title }}</h1>
+            <p style="color: var(--text-secondary); font-size: 0.9rem;">
+                Register a MikroTik that terminates customer PPPoE. API credentials are stored per router for auto cut/restore.
+            </p>
+        </div>
+
+        <form method="post" id="router-form" autocomplete="off">
+            {% csrf_token %}
+
+            <h2 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted);">Identity</h2>
+
+            <div class="form-group">
+                <label for="{{ form.name.id_for_label }}" class="form-label">Router name</label>
+                {{ form.name }}
+                {% if form.name.errors %}<span style="color: var(--danger); font-size: 0.8rem;">{{ form.name.errors.0 }}</span>{% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.location.id_for_label }}" class="form-label">Location / site</label>
+                {{ form.location }}
+                {% if form.location.errors %}<span style="color: var(--danger); font-size: 0.8rem;">{{ form.location.errors.0 }}</span>{% endif %}
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label for="{{ form.status.id_for_label }}" class="form-label">Status</label>
+                    {{ form.status }}
+                    {% if form.status.errors %}<span style="color: var(--danger); font-size: 0.8rem;">{{ form.status.errors.0 }}</span>{% endif %}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.customers_served.id_for_label }}" class="form-label">Approx. customers</label>
+                    {{ form.customers_served }}
+                    {% if form.customers_served.errors %}<span style="color: var(--danger); font-size: 0.8rem;">{{ form.customers_served.errors.0 }}</span>{% endif %}
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.notes.id_for_label }}" class="form-label">Notes</label>
+                {{ form.notes }}
+                {% if form.notes.errors %}<span style="color: var(--danger); font-size: 0.8rem;">{{ form.notes.errors.0 }}</span>{% endif %}
+            </div>
+
+            <div style="display: flex; flex-wrap: wrap; gap: 1.25rem; margin: 0.5rem 0 1.75rem;">
+                <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem;">
+                    {{ form.is_active }} Active
+                </label>
+                <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem;">
+                    {{ form.is_default }} Default for new customers
+                </label>
+            </div>
+
+            <h2 style="font-size: 0.95rem; font-weight: 700; margin-bottom: 1rem; text-transform: uppercase; letter-spacing: 0.04em; color: var(--text-muted);">MikroTik REST API</h2>
+
+            <div class="form-group">
+                <label for="{{ form.api_host.id_for_label }}" class="form-label">API host</label>
+                {{ form.api_host }}
+                <span style="color: var(--text-muted); font-size: 0.8rem; display: block; margin-top: 0.25rem;">Hostname or IP reachable from the billing server (VPN IP OK).</span>
+                {% if form.api_host.errors %}<span style="color: var(--danger); font-size: 0.8rem;">{{ form.api_host.errors.0 }}</span>{% endif %}
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.ip_address.id_for_label }}" class="form-label">Display IP <span style="color: var(--text-muted); font-weight: 400;">(optional)</span></label>
+                {{ form.ip_address }}
+                {% if form.ip_address.errors %}<span style="color: var(--danger); font-size: 0.8rem;">{{ form.ip_address.errors.0 }}</span>{% endif %}
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;">
+                <div class="form-group">
+                    <label for="{{ form.api_user.id_for_label }}" class="form-label">API username</label>
+                    {{ form.api_user }}
+                    {% if form.api_user.errors %}<span style="color: var(--danger); font-size: 0.8rem;">{{ form.api_user.errors.0 }}</span>{% endif %}
+                </div>
+                <div class="form-group">
+                    <label for="{{ form.api_password.id_for_label }}" class="form-label">API password</label>
+                    {{ form.api_password }}
+                    {% if form.api_password.errors %}<span style="color: var(--danger); font-size: 0.8rem;">{{ form.api_password.errors.0 }}</span>{% endif %}
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label for="{{ form.api_port.id_for_label }}" class="form-label">API port <span style="color: var(--text-muted); font-weight: 400;">(optional)</span></label>
+                {{ form.api_port }}
+                {% if form.api_port.errors %}<span style="color: var(--danger); font-size: 0.8rem;">{{ form.api_port.errors.0 }}</span>{% endif %}
+            </div>
+
+            <div style="display: flex; flex-wrap: wrap; gap: 1.25rem; margin: 0.5rem 0 2rem;">
+                <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem;">
+                    {{ form.api_ssl }} Use HTTPS
+                </label>
+                <label style="display: flex; align-items: center; gap: 0.5rem; font-size: 0.9rem;">
+                    {{ form.api_verify_ssl }} Verify TLS certificate
+                </label>
+            </div>
+
+            {% if form.non_field_errors %}
+            <div style="color: var(--danger); margin-bottom: 1rem; font-size: 0.9rem;">{{ form.non_field_errors }}</div>
+            {% endif %}
+
+            <div style="display: flex; gap: 1rem; justify-content: flex-end;">
+                <a href="{% url 'router_list' %}" class="btn btn-secondary" style="padding: 0.75rem 1.5rem;">Cancel</a>
+                <button type="submit" class="btn btn-primary" style="padding: 0.75rem 2rem;" id="btn-submit-router">
+                    <i data-feather="save" style="width: 16px; height: 16px;"></i> {{ submit_label }}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+@media (max-width: 640px) {
+    #router-form [style*="grid-template-columns: 1fr 1fr"] {
+        grid-template-columns: 1fr !important;
+    }
+}
+</style>
+{% endblock %}

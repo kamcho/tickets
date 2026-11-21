@@ -1,0 +1,177 @@
+{% load static %}
+<link rel="stylesheet" href="{% static 'core/css/sms-activity-modal.css' %}?v=1">
+
+<div class="sms-activity-modal" id="sms-activity-modal" aria-hidden="true" role="dialog" aria-labelledby="sms-activity-title" aria-modal="true">
+    <div class="sms-activity-modal__backdrop" id="sms-activity-backdrop" tabindex="-1"></div>
+    <div class="sms-activity-modal__panel">
+        <header class="sms-activity-modal__header">
+            <div>
+                <h2 class="sms-activity-modal__title" id="sms-activity-title">SMS activity</h2>
+                <p class="sms-activity-modal__subtitle" id="sms-activity-subtitle"></p>
+            </div>
+            <span class="sms-activity-badge" id="sms-activity-badge" data-overall=""></span>
+            <button type="button" class="sms-activity-modal__close" id="sms-activity-close" aria-label="Close SMS report">
+                <i data-feather="x"></i>
+            </button>
+        </header>
+
+        <div class="sms-activity-modal__body">
+            <p class="sms-activity-modal__intro">
+                Background steps run after the ticket was saved. If SMS failed, copy the report below and share with support.
+            </p>
+            <ol class="sms-activity-steps" id="sms-activity-steps"></ol>
+
+            <div class="sms-activity-copy-block">
+                <div class="sms-activity-copy-block__head">
+                    <span>Full report (copy for support)</span>
+                    <button type="button" class="btn btn-secondary btn-sm" id="sms-activity-copy-btn">
+                        <i data-feather="copy" style="width:14px;height:14px;"></i> Copy report
+                    </button>
+                </div>
+                <textarea class="sms-activity-copy-text" id="sms-activity-copy-text" readonly rows="8" aria-label="SMS activity report"></textarea>
+                <p class="sms-activity-copy-feedback" id="sms-activity-copy-feedback" hidden>Copied to clipboard.</p>
+            </div>
+        </div>
+
+        <footer class="sms-activity-modal__footer">
+            <button type="button" class="btn btn-primary" id="sms-activity-dismiss">Close</button>
+        </footer>
+    </div>
+</div>
+
+<button type="button" class="sms-activity-reopen" id="sms-activity-reopen" hidden title="View SMS activity report">
+    <i data-feather="message-square"></i>
+    <span>SMS report</span>
+</button>
+
+{{ sms_activity_report|json_script:"sms-activity-report-data" }}
+
+<script>
+(function () {
+    var dataEl = document.getElementById('sms-activity-report-data');
+    if (!dataEl) return;
+
+    var report = null;
+    try {
+        report = JSON.parse(dataEl.textContent || '');
+    } catch (e) {
+        console.warn('SMS activity report parse failed', e);
+        return;
+    }
+    if (!report || !report.steps || !report.steps.length) return;
+
+    var modal = document.getElementById('sms-activity-modal');
+    var backdrop = document.getElementById('sms-activity-backdrop');
+    var reopenBtn = document.getElementById('sms-activity-reopen');
+    var stepsEl = document.getElementById('sms-activity-steps');
+    var copyText = document.getElementById('sms-activity-copy-text');
+    var copyBtn = document.getElementById('sms-activity-copy-btn');
+    var copyFeedback = document.getElementById('sms-activity-copy-feedback');
+    var badge = document.getElementById('sms-activity-badge');
+    var subtitle = document.getElementById('sms-activity-subtitle');
+
+    var STATUS_ICON = {
+        done: 'check-circle',
+        error: 'alert-octagon',
+        skipped: 'minus-circle',
+        pending: 'clock'
+    };
+
+    function statusLabel(overall) {
+        var map = {
+            success: 'All sent',
+            partial: 'Partial failure',
+            failed: 'Failed',
+            skipped: 'Skipped'
+        };
+        return map[overall] || overall;
+    }
+
+    function escapeHtml(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;');
+    }
+
+    function renderSteps() {
+        document.getElementById('sms-activity-title').textContent = report.title || 'SMS activity';
+        subtitle.textContent = [
+            report.ticket_id ? 'Ticket ' + report.ticket_id : '',
+            report.source ? 'Source: ' + report.source : ''
+        ].filter(Boolean).join(' · ');
+
+        badge.textContent = statusLabel(report.overall);
+        badge.setAttribute('data-overall', report.overall || '');
+
+        stepsEl.innerHTML = '';
+        report.steps.forEach(function (step) {
+            var li = document.createElement('li');
+            li.className = 'sms-activity-step sms-activity-step--' + (step.status || 'pending');
+            var icon = STATUS_ICON[step.status] || 'circle';
+            li.innerHTML =
+                '<div class="sms-activity-step__icon"><i data-feather="' + icon + '"></i></div>' +
+                '<div class="sms-activity-step__content">' +
+                    '<div class="sms-activity-step__label">' + escapeHtml(step.label || '') + '</div>' +
+                    (step.detail ? '<div class="sms-activity-step__detail">' + escapeHtml(step.detail) + '</div>' : '') +
+                    (step.error ? '<div class="sms-activity-step__error">' + escapeHtml(step.error) + '</div>' : '') +
+                '</div>';
+            stepsEl.appendChild(li);
+        });
+
+        copyText.value = report.copy_text || '';
+        if (typeof feather !== 'undefined') feather.replace();
+    }
+
+    function openModal() {
+        modal.classList.add('is-open');
+        modal.setAttribute('aria-hidden', 'false');
+        document.body.classList.add('sms-activity-open');
+        if (reopenBtn) reopenBtn.hidden = true;
+    }
+
+    function closeModal() {
+        modal.classList.remove('is-open');
+        modal.setAttribute('aria-hidden', 'true');
+        document.body.classList.remove('sms-activity-open');
+        if (reopenBtn) reopenBtn.hidden = false;
+    }
+
+    renderSteps();
+
+    document.getElementById('sms-activity-close').addEventListener('click', closeModal);
+    document.getElementById('sms-activity-dismiss').addEventListener('click', closeModal);
+    if (backdrop) backdrop.addEventListener('click', closeModal);
+    if (reopenBtn) reopenBtn.addEventListener('click', openModal);
+
+    copyBtn.addEventListener('click', function () {
+        copyText.select();
+        copyText.setSelectionRange(0, copyText.value.length);
+        if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(copyText.value).then(showCopyFeedback).catch(function () {
+                document.execCommand('copy');
+                showCopyFeedback();
+            });
+        } else {
+            document.execCommand('copy');
+            showCopyFeedback();
+        }
+    });
+
+    function showCopyFeedback() {
+        copyFeedback.hidden = false;
+        setTimeout(function () { copyFeedback.hidden = true; }, 2500);
+    }
+
+    window.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape' && modal.classList.contains('is-open')) closeModal();
+    });
+
+    if (report.auto_open) {
+        openModal();
+    } else if (reopenBtn) {
+        reopenBtn.hidden = false;
+    }
+})();
+</script>

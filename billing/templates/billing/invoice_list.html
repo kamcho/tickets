@@ -1,0 +1,74 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Invoices — Billing{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'core/css/light-dashboard.css' %}?v=14">
+{% endblock %}
+
+{% block content %}
+<div class="ld-shell">
+    <div class="ld-topbar">
+        <div class="ld-filters">
+            <a href="{% url 'billing_payment_list' %}" class="ld-chip">← Payments</a>
+            <span class="ld-chip active">Invoices</span>
+        </div>
+    </div>
+
+    <div class="ld-page-head">
+        <h1>Invoices</h1>
+        <span class="ld-page-meta">Subscription bills and renewals</span>
+    </div>
+
+    <div class="ld-panel" style="margin-bottom:1.25rem;">
+        <form method="get" class="ld-filter-bar">
+            <div class="form-group" style="flex:1;min-width:200px;">
+                <label class="form-label" for="q">Search</label>
+                <input class="form-input" type="search" name="q" id="q" value="{{ q }}" placeholder="Invoice / customer…">
+            </div>
+            <div class="form-group" style="width:160px;">
+                <label class="form-label" for="status">Status</label>
+                <select class="form-input" name="status" id="status">
+                    <option value="">All statuses</option>
+                    {% for val, label in status_choices %}
+                    <option value="{{ val }}" {% if status == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button class="btn btn-secondary" type="submit">Filter</button>
+        </form>
+    </div>
+
+    <div class="ld-table-wrap">
+        <div class="table-scroll">
+            <table class="ld-table">
+                <thead>
+                    <tr>
+                        <th>Invoice</th>
+                        <th>Customer</th>
+                        <th>Plan</th>
+                        <th>Amount</th>
+                        <th>Period end / due</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for inv in invoices %}
+                    <tr>
+                        <td><a href="{% url 'billing_invoice_detail' inv.invoice_id %}" style="color:#2563eb;font-weight:700;text-decoration:none;">{{ inv.invoice_id }}</a></td>
+                        <td>{{ inv.subscription.customer.display_name }}</td>
+                        <td>{{ inv.subscription.plan.name }}</td>
+                        <td style="font-weight:700;">KES {{ inv.amount_due }}</td>
+                        <td style="font-size:0.82rem;color:#6b7280;">{{ inv.due_at|date:"Y-m-d H:i:s" }}</td>
+                        <td>{{ inv.get_status_display }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="ld-empty">No invoices yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

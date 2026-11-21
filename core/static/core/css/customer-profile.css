@@ -1,0 +1,49 @@
+/* Customer profile — thin layer on top of light-dashboard.css */
+
+.ld-shell .cp-page-head {
+    align-items: flex-start;
+    margin-bottom: 1.35rem;
+}
+
+.cp-identity {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    min-width: 0;
+}
+
+.cp-identity .ld-brand-mark {
+    width: 52px;
+    height: 52px;
+    border-radius: 14px;
+    font-size: 1.25rem;
+}
+
+.cp-sub-facts {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.95rem 1.1rem;
+}
+
+.cp-k {
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--ld-soft);
+}
+
+.cp-v {
+    margin-top: 0.25rem;
+    font-size: 0.9rem;
+    font-weight: 650;
+    color: var(--ld-text);
+}
+
+.cp-v.strong {
+    font-weight: 800;
+}
+
+@media (max-width: 640px) {
+    .cp-sub-facts { grid-template-columns: 1fr; }
+}

@@ -1,0 +1,94 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}{{ payment.payment_id }} — M-Pesa{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'core/css/light-dashboard.css' %}?v=14">
+{% endblock %}
+
+{% block content %}
+<div class="ld-shell">
+    <div class="ld-topbar">
+        <div class="ld-filters">
+            <a href="{% url 'billing_payment_list' %}" class="ld-chip">← All payments</a>
+            <span class="ld-chip active">{{ payment.payment_id }}</span>
+        </div>
+        <div class="ld-modes">
+            <a href="{% url 'billing_pull_transaction' %}">Pull</a>
+            <a href="{% url 'billing_manual_payment' %}">Manual</a>
+            <a href="{% url 'billing_stk_push' %}">STK Push</a>
+        </div>
+    </div>
+
+    <div class="ld-panel" style="margin-bottom:1.25rem;">
+        <div style="display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;align-items:flex-start;">
+            <div>
+                <h1 style="margin:0;font-size:1.5rem;font-weight:800;">{{ payment.payment_id }}</h1>
+                <p style="margin:0.35rem 0 0;color:var(--ld-muted);font-size:0.9rem;">
+                    {{ payment.get_source_display }} · {{ payment.description|default:"Payment" }}
+                </p>
+            </div>
+            <div>
+                {% if payment.status == 'success' %}<span class="ld-pill ok">{{ payment.get_status_display }}</span>
+                {% elif payment.status == 'pending' %}<span class="ld-pill warn">{{ payment.get_status_display }}</span>
+                {% elif payment.status == 'cancelled' %}<span class="ld-pill mute">{{ payment.get_status_display }}</span>
+                {% else %}<span class="ld-pill bad">{{ payment.get_status_display }}</span>{% endif %}
+                {% if payment.status == 'pending' %}
+                <p style="font-size:0.8rem;color:var(--ld-muted);margin:0.35rem 0 0;">
+                    Waiting for customer PIN / Safaricom callback…
+                </p>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="ld-kv-grid">
+            <div>
+                <div class="k">Amount</div>
+                <div class="v">KES {{ payment.amount }}</div>
+            </div>
+            <div>
+                <div class="k">Phone</div>
+                <div class="v"><code>{{ payment.phone }}</code></div>
+            </div>
+            <div>
+                <div class="k">Receipt</div>
+                <div class="v">{{ payment.mpesa_receipt_number|default:"—" }}</div>
+            </div>
+            <div>
+                <div class="k">Account ref</div>
+                <div class="v">{{ payment.account_reference }}</div>
+            </div>
+            <div>
+                <div class="k">Customer</div>
+                <div class="v">
+                    {% if payment.customer %}
+                        <a href="{% url 'customer_detail' payment.customer.pk %}" style="color:#2563eb;text-decoration:none;">{{ payment.customer.display_name }}</a>
+                    {% else %}—{% endif %}
+                </div>
+            </div>
+            <div>
+                <div class="k">Initiated by</div>
+                <div class="v">{{ payment.initiated_by.display_name|default:"—" }}</div>
+            </div>
+        </div>
+
+        {% if payment.result_desc %}
+        <p style="margin-top:1.25rem;font-size:0.875rem;color:var(--ld-muted);">
+            <strong style="color:var(--ld-text);">Result:</strong> {{ payment.result_desc }}
+            {% if payment.result_code is not None %} (code {{ payment.result_code }}){% endif %}
+        </p>
+        {% endif %}
+    </div>
+
+    <div class="ld-panel">
+        <div class="ld-panel-head"><h3>Daraja IDs</h3></div>
+        <p style="font-size:0.82rem;margin:0.35rem 0;"><strong>MerchantRequestID:</strong> <code>{{ payment.merchant_request_id|default:"—" }}</code></p>
+        <p style="font-size:0.82rem;margin:0.35rem 0;"><strong>CheckoutRequestID:</strong> <code>{{ payment.checkout_request_id|default:"—" }}</code></p>
+        <p style="font-size:0.82rem;margin:0.35rem 0;"><strong>OriginatorConversationID:</strong> <code>{{ payment.originator_conversation_id|default:"—" }}</code></p>
+        <p style="font-size:0.82rem;margin:0.75rem 0 0;color:var(--ld-muted);">
+            Created {{ payment.created_at }}{% if payment.completed_at %} · Completed {{ payment.completed_at }}{% endif %}
+        </p>
+    </div>
+</div>
+{% endblock %}

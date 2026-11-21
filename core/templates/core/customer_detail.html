@@ -1,139 +1,543 @@
 {% extends 'core/base.html' %}
+{% load static %}
 
-{% block title %}{{ customer.display_name }} - Customer Profile{% endblock %}
+{% block title %}{{ customer.display_name }} — Customer{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'core/css/light-dashboard.css' %}?v=13">
+<link rel="stylesheet" href="{% static 'core/css/customer-profile.css' %}?v=2">
+{% endblock %}
 
 {% block content %}
-<!-- Back Navigation -->
-<div style="margin-bottom: 2rem;">
-    <a href="/customers/" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.85rem;" id="btn-back-customers">
-        <i data-feather="arrow-left" style="width: 14px; height: 14px;"></i> Back to Customers
-    </a>
-</div>
-
-<!-- Customer Profile Header -->
-<div class="card" style="padding: 2rem; margin-bottom: 2rem;">
-    <div style="display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap;">
-        <!-- Avatar -->
-        <div style="width: 72px; height: 72px; border-radius: 50%; background: linear-gradient(135deg, #f59e0b 0%, #ef4444 100%); display: flex; align-items: center; justify-content: center; font-size: 1.75rem; color: white; font-weight: 800; flex-shrink: 0;">
-            {{ customer.display_name|slice:":1"|upper }}
+<div class="ld-shell">
+    <div class="ld-topbar">
+        <div class="ld-filters">
+            <a href="/customers/" class="ld-chip" id="btn-back-customers">← Customers</a>
+            {% if subscription and subscription.status == 'active' %}
+            <span class="ld-chip active">{{ subscription.plan.speed_mbps }} Mbps · active</span>
+            {% elif subscription %}
+            <span class="ld-chip">{{ subscription.get_status_display }}</span>
+            {% else %}
+            <span class="ld-chip">No subscription</span>
+            {% endif %}
         </div>
-        <!-- Info -->
-        <div style="flex: 1;">
-            <h1 style="font-size: 1.75rem; font-weight: 800; letter-spacing: -0.025em; margin-bottom: 0.25rem; color: var(--text-primary);">
-                {{ customer.display_name }}
-            </h1>
-            <div style="display: flex; gap: 1.5rem; flex-wrap: wrap; color: var(--text-secondary); font-size: 0.875rem;">
-                <span><i data-feather="mail" style="width: 13px; height: 13px; vertical-align: middle;"></i> {{ customer.email }}</span>
-                <span><i data-feather="phone" style="width: 13px; height: 13px; vertical-align: middle;"></i> {{ customer.phone }}</span>
-                {% if customer.address %}
-                    <span><i data-feather="map-pin" style="width: 13px; height: 13px; vertical-align: middle;"></i> {{ customer.address }}</span>
-                {% endif %}
-                {% if customer.location %}
-                    <a href="{{ customer.location }}" target="_blank" style="color: var(--accent); text-decoration: none; font-weight: 600;">
-                        <i data-feather="navigation" style="width: 13px; height: 13px; vertical-align: middle;"></i> View on Map
-                    </a>
-                {% endif %}
-            </div>
-        </div>
-        <!-- Quick Actions -->
-        <div style="display: flex; gap: 0.75rem;">
+        <div class="ld-modes">
+            {% if user.role == 'Admin' or user.role == 'Receptionist' %}
+            <a href="{% url 'billing_customer_subscribe' customer.pk %}">Subscribe</a>
+            <a href="{% url 'billing_stk_push' %}?customer={{ customer.pk }}">STK Push</a>
+            <a href="{% url 'billing_pull_transaction' %}?customer={{ customer.pk }}">Pull receipt</a>
+            <a href="{% url 'billing_manual_payment' %}?customer={{ customer.pk }}">Manual pay</a>
+            {% endif %}
             {% if can_create_ticket %}
-            <a href="{% url 'ticket_create' %}" class="btn btn-primary" style="padding: 0.6rem 1.25rem; font-size: 0.85rem;">
-                <i data-feather="plus-circle" style="width: 14px; height: 14px;"></i> Open Ticket
-            </a>
+            <a href="{% url 'ticket_create' %}">Ticket</a>
             {% endif %}
         </div>
     </div>
-</div>
 
-<!-- Ticket Stats -->
-<div class="stats-grid">
-    <div class="card" style="padding: 1.25rem; text-align: center;">
-        <div style="font-size: 2rem; font-weight: 800; color: var(--primary); letter-spacing: -0.025em;">{{ metrics.total }}</div>
-        <div style="color: var(--text-secondary); font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Total Tickets</div>
+    <div class="ld-page-head cp-page-head">
+        <div class="cp-identity">
+            <div class="ld-brand-mark">{{ customer.display_name|slice:":1"|upper }}</div>
+            <div>
+                <h1>{{ customer.display_name }}</h1>
+                <span class="ld-page-meta">
+                    {{ customer.phone }}
+                    {% if customer.email %} · {{ customer.email }}{% endif %}
+                    {% if customer.address %} · {{ customer.address }}{% endif %}
+                </span>
+                {% if customer.location %}
+                <div class="ld-meta">
+                    <a href="{{ customer.location }}" target="_blank" rel="noopener" style="color:var(--ld-blue);font-weight:600;text-decoration:none;">View on map →</a>
+                </div>
+                {% endif %}
+            </div>
+        </div>
     </div>
-    <div class="card" style="padding: 1.25rem; text-align: center;">
-        <div style="font-size: 2rem; font-weight: 800; color: var(--accent); letter-spacing: -0.025em;">{{ metrics.open }}</div>
-        <div style="color: var(--text-secondary); font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Open</div>
-    </div>
-    <div class="card" style="padding: 1.25rem; text-align: center;">
-        <div style="font-size: 2rem; font-weight: 800; color: var(--warning); letter-spacing: -0.025em;">{{ metrics.in_progress }}</div>
-        <div style="color: var(--text-secondary); font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">In Progress</div>
-    </div>
-    <div class="card" style="padding: 1.25rem; text-align: center;">
-        <div style="font-size: 2rem; font-weight: 800; color: var(--success); letter-spacing: -0.025em;">{{ metrics.resolved }}</div>
-        <div style="color: var(--text-secondary); font-size: 0.8rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Resolved / Closed</div>
-    </div>
-</div>
 
-<!-- Support History Table -->
-<div class="card card--flush">
-    <div style="padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--border-color);">
-        <h3 style="font-size: 1.1rem; font-weight: 700; color: var(--text-primary); margin: 0;">Support Ticket History</h3>
+    <div class="ld-kpi-row four">
+        <div class="ld-stat tone-blue">
+            <div class="ld-stat-top">
+                <div class="ld-stat-icon"><i data-feather="life-buoy"></i></div>
+                <div class="ld-stat-value">{{ metrics.total }}</div>
+            </div>
+            <div class="ld-stat-label">Total tickets</div>
+            <div class="ld-stat-foot flat">
+                <span class="mark">✓</span>
+                {{ metrics.open }} open · {{ metrics.in_progress }} in progress
+            </div>
+        </div>
+
+        <div class="ld-stat tone-teal">
+            <div class="ld-stat-top">
+                <div class="ld-stat-icon"><i data-feather="activity"></i></div>
+                <div class="ld-stat-value">{{ metrics.open|add:metrics.in_progress }}</div>
+            </div>
+            <div class="ld-stat-label">Active tickets</div>
+            <div class="ld-stat-foot {% if metrics.open or metrics.in_progress %}warn{% else %}flat{% endif %}">
+                {% if metrics.open or metrics.in_progress %}
+                <span class="mark">↑</span>
+                Needs attention
+                {% else %}
+                <span class="mark">✓</span>
+                Without open issues
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="ld-stat tone-green">
+            <div class="ld-stat-top">
+                <div class="ld-stat-icon"><i data-feather="dollar-sign"></i></div>
+                <div class="ld-stat-value sm">KES {{ finance.collected }}</div>
+            </div>
+            <div class="ld-stat-label">M-Pesa collected</div>
+            <div class="ld-stat-foot {% if finance.collected %}up{% else %}flat{% endif %}">
+                {% if finance.collected %}
+                <span class="mark">↑</span>
+                {{ finance.payment_count }} payment{{ finance.payment_count|pluralize }}
+                {% else %}
+                <span class="mark">✓</span>
+                No collections yet
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="ld-stat tone-orange">
+            <div class="ld-stat-top">
+                <div class="ld-stat-icon"><i data-feather="alert-circle"></i></div>
+                <div class="ld-stat-value sm">KES {{ finance.outstanding }}</div>
+            </div>
+            <div class="ld-stat-label">Outstanding invoices</div>
+            <div class="ld-stat-foot {% if finance.outstanding %}down{% else %}flat{% endif %}">
+                {% if finance.outstanding %}
+                <span class="mark">↓</span>
+                Balance due
+                {% else %}
+                <span class="mark">✓</span>
+                Nothing outstanding
+                {% endif %}
+            </div>
+        </div>
     </div>
-    <div class="table-scroll">
-        <table style="width: 100%; min-width: 640px; border-collapse: collapse; font-size: 0.9rem;">
-            <thead>
-                <tr style="background: rgba(99, 102, 241, 0.08); border-bottom: 1px solid var(--border-color);">
-                    <th style="padding: 0.85rem 1.25rem; text-align: left; font-weight: 700; color: var(--text-primary); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;">Ticket ID</th>
-                    <th style="padding: 0.85rem 1.25rem; text-align: left; font-weight: 700; color: var(--text-primary); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;">Description</th>
-                    <th style="padding: 0.85rem 1.25rem; text-align: center; font-weight: 700; color: var(--text-primary); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;">Status</th>
-                    <th style="padding: 0.85rem 1.25rem; text-align: center; font-weight: 700; color: var(--text-primary); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;">Priority</th>
-                    <th style="padding: 0.85rem 1.25rem; text-align: center; font-weight: 700; color: var(--text-primary); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;">Opened</th>
-                    <th style="padding: 0.85rem 1.25rem; text-align: center; font-weight: 700; color: var(--text-primary); font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;">Action</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for ticket in tickets %}
-                    <tr style="border-bottom: 1px solid var(--border-color); transition: background 0.15s ease;" onmouseover="this.style.background='rgba(99, 102, 241, 0.04)'" onmouseout="this.style.background='transparent'">
-                        <td style="padding: 0.85rem 1.25rem;">
-                            <span style="font-weight: 700; color: var(--primary);">{{ ticket.ticket_id }}</span>
-                        </td>
-                        <td style="padding: 0.85rem 1.25rem; color: var(--text-primary);">{{ ticket.description|truncatewords:8 }}</td>
-                        <td style="padding: 0.85rem 1.25rem; text-align: center;">
-                            {% if ticket.status == 'Open' %}
-                                <span style="background: rgba(6, 182, 212, 0.15); border: 1px solid rgba(6, 182, 212, 0.3); color: var(--accent); font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 20px; font-weight: 700;">Open</span>
-                            {% elif ticket.status == 'In Progress' %}
-                                <span style="background: rgba(99, 102, 241, 0.15); border: 1px solid rgba(99, 102, 241, 0.3); color: var(--primary); font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 20px; font-weight: 700;">In Progress</span>
-                            {% elif ticket.status == 'On Hold' %}
-                                <span style="background: rgba(245, 158, 11, 0.15); border: 1px solid rgba(245, 158, 11, 0.3); color: var(--warning); font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 20px; font-weight: 700;">On Hold</span>
-                            {% elif ticket.status == 'Resolved' %}
-                                <span style="background: rgba(16, 185, 129, 0.15); border: 1px solid rgba(16, 185, 129, 0.3); color: var(--success); font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 20px; font-weight: 700;">Resolved</span>
-                            {% else %}
-                                <span style="background: rgba(255, 255, 255, 0.05); border: 1px solid var(--border-color); color: var(--text-muted); font-size: 0.75rem; padding: 0.2rem 0.5rem; border-radius: 20px; font-weight: 700;">Closed</span>
+
+    {% if user.role == 'Admin' or user.role == 'Receptionist' %}
+    <div class="ld-analytics">
+        <div class="ld-panel">
+            <div class="ld-panel-head">
+                <h3>Subscription</h3>
+                {% if not subscription or subscription.status != 'active' %}
+                <a href="{% url 'billing_customer_subscribe' customer.pk %}" class="ld-btn">Start</a>
+                {% endif %}
+            </div>
+            {% if subscription %}
+            <div class="cp-sub-facts">
+                <div>
+                    <div class="cp-k">Plan</div>
+                    <div class="cp-v">{{ subscription.plan.name }} · {{ subscription.plan.speed_mbps }} Mbps</div>
+                </div>
+                <div>
+                    <div class="cp-k">Status</div>
+                    <div class="cp-v">
+                        {% if subscription.status == 'active' %}
+                        <span class="ld-pill ok">Active</span>
+                        {% elif subscription.status == 'expired' %}
+                        <span class="ld-pill bad">Expired</span>
+                        {% else %}
+                        <span class="ld-pill mute">{{ subscription.get_status_display }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div>
+                    <div class="cp-k">Started</div>
+                    <div class="cp-v">{{ subscription.started_at|date:"d M Y H:i:s" }}</div>
+                </div>
+                <div>
+                    <div class="cp-k">Expires / disconnect</div>
+                    <div class="cp-v strong">{{ subscription.expires_at|date:"d M Y H:i:s" }}</div>
+                </div>
+                <div>
+                    <div class="cp-k">Monthly price</div>
+                    <div class="cp-v">KES {{ subscription.plan.price }}</div>
+                </div>
+            </div>
+            {% else %}
+            <div class="ld-empty">No subscription yet. Start one to bill this customer.</div>
+            {% endif %}
+        </div>
+
+        <div class="ld-panel">
+            <div class="ld-panel-head">
+                <h3>Home routers (CPE)</h3>
+                <span class="ld-freq">{{ home_routers|length }} recorded</span>
+            </div>
+            <p style="margin:0 0 1rem;font-size:0.82rem;color:var(--ld-soft);line-height:1.45;">
+                Normal Wi‑Fi / CPE routers we issue or install at the customer’s home.
+                These are <strong>not</strong> MikroTik towers — towers are managed under Network → Routers for PPPoE cut/restore.
+            </p>
+
+            {% if home_routers %}
+            <div style="display:flex;flex-direction:column;gap:0.75rem;margin-bottom:1.25rem;">
+                {% for hr in home_routers %}
+                <div style="border:1px solid var(--border-color,#e5e7eb);border-radius:10px;padding:0.85rem 1rem;{% if not hr.is_active %}opacity:0.65;{% endif %}">
+                    <div style="display:flex;justify-content:space-between;gap:0.75rem;flex-wrap:wrap;align-items:flex-start;">
+                        <div>
+                            <strong>{{ hr.display_name }}</strong>
+                            {% if not hr.is_active %}<span class="ld-pill bad" style="margin-left:0.35rem;">Inactive</span>{% endif %}
+                            <div style="font-size:0.8rem;color:var(--ld-soft);margin-top:0.25rem;">
+                                {{ hr.get_ownership_display }}
+                                {% if hr.serial_number %} · S/N {{ hr.serial_number }}{% endif %}
+                                {% if hr.mac_address %} · MAC {{ hr.mac_address }}{% endif %}
+                                {% if hr.installed_at %} · Installed {{ hr.installed_at|date:"d M Y" }}{% endif %}
+                            </div>
+                            {% if hr.ssid %}
+                            <div style="font-size:0.8rem;margin-top:0.2rem;">Wi‑Fi: <code>{{ hr.ssid }}</code></div>
                             {% endif %}
-                        </td>
-                        <td style="padding: 0.85rem 1.25rem; text-align: center;">
-                            {% if ticket.priority == 'High' %}
-                                <span style="color: var(--danger); font-weight: 700; font-size: 0.8rem;">High</span>
-                            {% elif ticket.priority == 'Medium' %}
-                                <span style="color: var(--warning); font-weight: 700; font-size: 0.8rem;">Medium</span>
-                            {% else %}
-                                <span style="color: var(--text-secondary); font-weight: 600; font-size: 0.8rem;">Low</span>
+                            {% if hr.notes %}
+                            <div style="font-size:0.8rem;color:var(--ld-soft);margin-top:0.25rem;">{{ hr.notes }}</div>
                             {% endif %}
-                        </td>
-                        <td style="padding: 0.85rem 1.25rem; text-align: center; color: var(--text-muted); font-size: 0.8rem;">{{ ticket.created_at|date:"d M Y" }}</td>
-                        <td style="padding: 0.85rem 1.25rem; text-align: center;">
-                            <a href="/tickets/{{ ticket.ticket_id }}/" class="btn btn-secondary" style="padding: 0.35rem 0.75rem; font-size: 0.75rem; border-radius: 6px;">
-                                <i data-feather="external-link" style="width: 12px; height: 12px;"></i> Open
-                            </a>
-                        </td>
-                    </tr>
-                {% empty %}
-                    <tr>
-                        <td colspan="6" style="padding: 3rem; text-align: center; color: var(--text-muted); font-size: 0.95rem;">
-                            <i data-feather="inbox" style="width: 32px; height: 32px; margin-bottom: 0.75rem; display: block; margin-left: auto; margin-right: auto;"></i>
-                            No support tickets linked to this customer yet.
-                        </td>
-                    </tr>
+                        </div>
+                        {% if hr.is_active %}
+                        <form method="post" onsubmit="return confirm('Mark this home router inactive?');">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="retire_home_router">
+                            <input type="hidden" name="home_router_id" value="{{ hr.pk }}">
+                            <button type="submit" class="ld-btn">Retire</button>
+                        </form>
+                        {% endif %}
+                    </div>
+                </div>
                 {% endfor %}
-            </tbody>
-        </table>
+            </div>
+            {% else %}
+            <div class="ld-empty" style="margin-bottom:1rem;">No home routers recorded for this customer yet.</div>
+            {% endif %}
+
+            <details open style="border-top:1px solid var(--border-color,#e5e7eb);padding-top:1rem;">
+                <summary style="cursor:pointer;font-weight:700;font-size:0.9rem;margin-bottom:0.75rem;">+ Add home router</summary>
+                <form method="post">
+                    {% csrf_token %}
+                    <input type="hidden" name="action" value="add_home_router">
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
+                        <div class="form-group" style="margin:0;">
+                            <label class="form-label" for="{{ home_router_form.brand.id_for_label }}">Brand</label>
+                            {{ home_router_form.brand }}
+                        </div>
+                        <div class="form-group" style="margin:0;">
+                            <label class="form-label" for="{{ home_router_form.model.id_for_label }}">Model</label>
+                            {{ home_router_form.model }}
+                        </div>
+                        <div class="form-group" style="margin:0;">
+                            <label class="form-label" for="{{ home_router_form.serial_number.id_for_label }}">Serial</label>
+                            {{ home_router_form.serial_number }}
+                        </div>
+                        <div class="form-group" style="margin:0;">
+                            <label class="form-label" for="{{ home_router_form.mac_address.id_for_label }}">MAC</label>
+                            {{ home_router_form.mac_address }}
+                        </div>
+                        <div class="form-group" style="margin:0;">
+                            <label class="form-label" for="{{ home_router_form.ssid.id_for_label }}">Wi‑Fi SSID</label>
+                            {{ home_router_form.ssid }}
+                        </div>
+                        <div class="form-group" style="margin:0;">
+                            <label class="form-label" for="{{ home_router_form.wifi_password.id_for_label }}">Wi‑Fi password</label>
+                            {{ home_router_form.wifi_password }}
+                        </div>
+                        <div class="form-group" style="margin:0;">
+                            <label class="form-label" for="{{ home_router_form.ownership.id_for_label }}">Ownership</label>
+                            {{ home_router_form.ownership }}
+                        </div>
+                        <div class="form-group" style="margin:0;">
+                            <label class="form-label" for="{{ home_router_form.installed_at.id_for_label }}">Install date</label>
+                            {{ home_router_form.installed_at }}
+                        </div>
+                    </div>
+                    <div class="form-group" style="margin-top:0.75rem;">
+                        <label class="form-label" for="{{ home_router_form.notes.id_for_label }}">Notes</label>
+                        {{ home_router_form.notes }}
+                    </div>
+                    <label style="display:flex;align-items:center;gap:0.45rem;font-size:0.85rem;margin:0.5rem 0 1rem;">
+                        {{ home_router_form.is_active }} Active / in use
+                    </label>
+                    <button type="submit" class="ld-btn primary">Save home router</button>
+                </form>
+            </details>
+        </div>
+
+        <div class="ld-panel">
+            <div class="ld-panel-head">
+                <h3>PPPoE (ISP account)</h3>
+                {% if not network_account %}
+                <button type="button" class="ld-btn" id="btn-net-provision"
+                        data-customer="{{ customer.pk }}">Provision</button>
+                {% endif %}
+            </div>
+            <p style="margin:0 0 0.85rem;font-size:0.8rem;color:var(--ld-soft);">
+                Login used on our MikroTik towers for cut/restore — separate from the home Wi‑Fi router above.
+            </p>
+            {% if network_account %}
+            <div class="cp-sub-facts">
+                <div>
+                    <div class="cp-k">PPP username</div>
+                    <div class="cp-v"><code>{{ network_account.username }}</code></div>
+                </div>
+                <div>
+                    <div class="cp-k">Serving tower</div>
+                    <div class="cp-v">{{ network_account.router.name|default:"Default / .env" }}</div>
+                </div>
+                <div>
+                    <div class="cp-k">Profile</div>
+                    <div class="cp-v">{{ network_account.profile|default:"—" }}</div>
+                </div>
+                <div>
+                    <div class="cp-k">Access</div>
+                    <div class="cp-v">
+                        {% if network_account.disabled %}
+                        <span class="ld-pill bad">Suspended</span>
+                        {% else %}
+                        <span class="ld-pill ok">Enabled</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <div>
+                    <div class="cp-k">Last sync</div>
+                    <div class="cp-v">{{ network_account.last_synced_at|default:"—" }}</div>
+                </div>
+            </div>
+            {% if network_account.last_error %}
+            <p style="margin:0.75rem 0 0;font-size:0.8rem;color:#b91c1c;">{{ network_account.last_error }}</p>
+            {% endif %}
+            <div style="display:flex;gap:0.5rem;flex-wrap:wrap;margin-top:1rem;">
+                <button type="button" class="ld-btn" id="btn-net-suspend" data-id="{{ network_account.pk }}">Suspend</button>
+                <button type="button" class="ld-btn primary" id="btn-net-restore" data-id="{{ network_account.pk }}">Restore</button>
+                <button type="button" class="ld-btn" id="btn-net-kick" data-id="{{ network_account.pk }}">Kick session</button>
+            </div>
+            {% else %}
+            <div class="ld-empty">No PPPoE account yet. Provision after MikroTik is configured, or it auto-creates on payment.</div>
+            {% endif %}
+        </div>
+
+        <div class="ld-panel">
+            <div class="ld-panel-head">
+                <h3>Finance snapshot</h3>
+                <span class="ld-freq">All time</span>
+            </div>
+            <div class="cp-sub-facts">
+                <div>
+                    <div class="cp-k">Collected</div>
+                    <div class="cp-v strong">KES {{ finance.collected }}</div>
+                </div>
+                <div>
+                    <div class="cp-k">Pending STK</div>
+                    <div class="cp-v">KES {{ finance.pending }}</div>
+                </div>
+                <div>
+                    <div class="cp-k">Invoiced</div>
+                    <div class="cp-v">KES {{ finance.invoiced }}</div>
+                </div>
+                <div>
+                    <div class="cp-k">Payments</div>
+                    <div class="cp-v">{{ finance.payment_count }}</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="ld-table-wrap">
+        <div class="ld-table-head">
+            <h3>Finance history</h3>
+            <a href="{% url 'billing_payment_list' %}?q={{ customer.phone }}">View payments →</a>
+        </div>
+        <div class="table-scroll">
+            <table class="ld-table">
+                <thead>
+                    <tr>
+                        <th>When</th>
+                        <th>Type</th>
+                        <th>Reference</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in finance_history %}
+                    {% if row.kind == 'payment' %}
+                    {% with p=row.payment %}
+                    <tr>
+                        <td>
+                            <div style="font-weight:600;">{{ row.sort_at|date:"d M Y" }}</div>
+                            <div style="color:var(--ld-soft);font-size:0.78rem;">{{ row.sort_at|date:"H:i" }}</div>
+                        </td>
+                        <td>M-Pesa STK</td>
+                        <td>
+                            <a href="{% url 'billing_payment_detail' p.payment_id %}" style="color:#2563eb;font-weight:700;text-decoration:none;">{{ p.payment_id }}</a>
+                            {% if p.mpesa_receipt_number %}
+                            <div style="color:var(--ld-soft);font-size:0.78rem;">{{ p.mpesa_receipt_number }}</div>
+                            {% endif %}
+                        </td>
+                        <td style="font-weight:700;">KES {{ p.amount }}</td>
+                        <td>
+                            {% if p.status == 'success' %}<span class="ld-pill ok">Paid</span>
+                            {% elif p.status == 'pending' %}<span class="ld-pill warn">Pending</span>
+                            {% elif p.status == 'cancelled' %}<span class="ld-pill mute">Cancelled</span>
+                            {% else %}<span class="ld-pill bad">Failed</span>{% endif %}
+                        </td>
+                    </tr>
+                    {% endwith %}
+                    {% else %}
+                    {% with inv=row.invoice %}
+                    <tr>
+                        <td>
+                            <div style="font-weight:600;">{{ row.sort_at|date:"d M Y" }}</div>
+                            <div style="color:var(--ld-soft);font-size:0.78rem;">due {{ row.sort_at|date:"H:i:s" }}</div>
+                        </td>
+                        <td>Invoice · {{ inv.subscription.plan.name }}</td>
+                        <td>
+                            <a href="{% url 'billing_invoice_detail' inv.invoice_id %}" style="color:#2563eb;font-weight:700;text-decoration:none;">{{ inv.invoice_id }}</a>
+                            <div style="color:var(--ld-soft);font-size:0.78rem;">{{ inv.period_start|date:"d M" }} – {{ inv.period_end|date:"d M Y" }}</div>
+                        </td>
+                        <td style="font-weight:700;">KES {{ inv.amount_due }}</td>
+                        <td>
+                            {% if inv.status == 'paid' %}<span class="ld-pill ok">Paid</span>
+                            {% elif inv.status == 'overdue' %}<span class="ld-pill bad">Overdue</span>
+                            {% elif inv.status == 'partial' %}<span class="ld-pill warn">Partial</span>
+                            {% elif inv.status == 'issued' %}<span class="ld-pill info">Issued</span>
+                            {% else %}<span class="ld-pill mute">{{ inv.get_status_display }}</span>{% endif %}
+                        </td>
+                    </tr>
+                    {% endwith %}
+                    {% endif %}
+                    {% empty %}
+                    <tr><td colspan="5" class="ld-empty">No finance history yet. Subscribe or send an STK Push.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+    {% endif %}
+
+    <div class="ld-table-wrap">
+        <div class="ld-table-head">
+            <h3>Support tickets</h3>
+            <span class="ld-pill mute">{{ metrics.total }} total</span>
+        </div>
+        <div class="table-scroll">
+            <table class="ld-table">
+                <thead>
+                    <tr>
+                        <th>Ticket</th>
+                        <th>Description</th>
+                        <th>Status</th>
+                        <th>Priority</th>
+                        <th>Opened</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for ticket in tickets %}
+                    <tr>
+                        <td style="font-weight:700;">{{ ticket.ticket_id }}</td>
+                        <td>{{ ticket.description|truncatewords:10 }}</td>
+                        <td>
+                            {% if ticket.status == 'Open' %}<span class="ld-pill info">Open</span>
+                            {% elif ticket.status == 'In Progress' %}<span class="ld-pill warn">In Progress</span>
+                            {% elif ticket.status == 'On Hold' %}<span class="ld-pill mute">On Hold</span>
+                            {% elif ticket.status == 'Resolved' %}<span class="ld-pill ok">Resolved</span>
+                            {% else %}<span class="ld-pill mute">Closed</span>{% endif %}
+                        </td>
+                        <td>
+                            {% if ticket.priority == 'High' %}<span style="color:var(--ld-red);font-weight:700;">High</span>
+                            {% elif ticket.priority == 'Medium' %}<span style="color:var(--ld-orange);font-weight:700;">Medium</span>
+                            {% else %}<span style="color:var(--ld-soft);">Low</span>{% endif %}
+                        </td>
+                        <td style="color:var(--ld-muted);font-size:0.8rem;">{{ ticket.created_at|date:"d M Y" }}</td>
+                        <td><a href="/tickets/{{ ticket.ticket_id }}/" style="color:#2563eb;font-weight:700;text-decoration:none;">Open</a></td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="ld-empty">No support tickets for this customer yet.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div style="margin-top:0.75rem;text-align:right;color:var(--ld-soft);font-size:0.78rem;font-weight:600;">
+        Registered {{ customer.date_joined|date:"d M Y H:i" }}
     </div>
 </div>
-
-<!-- Audit Footer -->
-<div style="margin-top: 1.5rem; text-align: right; color: var(--text-muted); font-size: 0.8rem;">
-    Registered: {{ customer.date_joined|date:"d M Y H:i" }}
-</div>
+<form id="csrf-holder" style="display:none;">{% csrf_token %}</form>
+<script>
+(function () {
+    function csrf() {
+        var input = document.querySelector('#csrf-holder [name=csrfmiddlewaretoken]')
+            || document.querySelector('[name=csrfmiddlewaretoken]');
+        if (input && input.value) return input.value;
+        var m = document.cookie.match(/(?:^|;\s*)csrftoken=([^;]+)/);
+        return m ? decodeURIComponent(m[1]) : '';
+    }
+    function parseJsonResponse(r) {
+        return r.text().then(function (text) {
+            var j = {};
+            try { j = text ? JSON.parse(text) : {}; } catch (e) {
+                j = { error: r.status === 403
+                    ? 'CSRF failed — refresh this page and try again.'
+                    : ('HTTP ' + r.status + (text ? ': ' + text.slice(0, 180) : '')) };
+            }
+            if (r.status === 403 && !j.error) {
+                j.error = 'CSRF failed — refresh this page and try again.';
+            }
+            return { ok: r.ok, status: r.status, j: j };
+        });
+    }
+    function post(url, body) {
+        return fetch(url, {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': csrf(),
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            credentials: 'same-origin',
+            body: JSON.stringify(body || {})
+        }).then(parseJsonResponse);
+    }
+    function showResult(res, btn) {
+        var j = res.j || {};
+        var msg = j.error || j.detail
+            || (j.ok || j.skipped
+                ? ('Done' + (j.username ? ': ' + j.username : '') + (j.skipped ? ' (MikroTik not configured — local only)' : ''))
+                : 'Request failed');
+        alert(msg);
+        if (res.ok || j.ok || j.skipped) location.reload();
+        else if (btn) btn.disabled = false;
+    }
+    function bind(id, urlBuilder) {
+        var btn = document.getElementById(id);
+        if (!btn) return;
+        btn.addEventListener('click', function () {
+            btn.disabled = true;
+            post(urlBuilder(btn), {})
+                .then(function (res) { showResult(res, btn); })
+                .catch(function (err) {
+                    btn.disabled = false;
+                    alert('Request failed: ' + (err && err.message ? err.message : 'network'));
+                });
+        });
+    }
+    bind('btn-net-suspend', function (b) { return '/api/network/accounts/' + b.dataset.id + '/suspend/'; });
+    bind('btn-net-restore', function (b) { return '/api/network/accounts/' + b.dataset.id + '/restore/'; });
+    bind('btn-net-kick', function (b) { return '/api/network/accounts/' + b.dataset.id + '/kick/'; });
+    var prov = document.getElementById('btn-net-provision');
+    if (prov) {
+        prov.addEventListener('click', function () {
+            prov.disabled = true;
+            post('/api/network/accounts/', {
+                customer_id: parseInt(prov.dataset.customer, 10)
+            })
+                .then(function (res) { showResult(res, prov); })
+                .catch(function (err) {
+                    prov.disabled = false;
+                    alert('Request failed: ' + (err && err.message ? err.message : 'network'));
+                });
+        });
+    }
+})();
+</script>
 {% endblock %}

@@ -1,4 +1,4 @@
-from django.urls import path
+from django.urls import include, path
 from .views import landing_page, login_view
 from .views_assistant import (
     assistant_page, assistant_chat_api, assistant_chat_stream_api,
@@ -23,6 +23,8 @@ urlpatterns = [
     path("api/assistant/chat/stream/", assistant_chat_stream_api, name="assistant_chat_stream_api"),
     path("api/categories/suggest/", category_suggest_api, name="category_suggest_api"),
     path("api/whatsapp/webhook/", whatsapp_webhook, name="whatsapp_webhook"),
+    # M-Pesa callback must be reachable on the public apex host too
+    path("", include("billing.urls")),
 ]
 
 from .url_handlers import handler400, handler403, handler404, handler500

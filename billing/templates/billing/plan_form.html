@@ -1,0 +1,42 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}{{ title }} — Billing{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'core/css/light-dashboard.css' %}?v=14">
+{% endblock %}
+
+{% block content %}
+<div class="ld-shell">
+    <div class="ld-topbar">
+        <div class="ld-filters">
+            <a href="{% url 'billing_plan_list' %}" class="ld-chip">← Plans</a>
+            <span class="ld-chip active">{{ title }}</span>
+        </div>
+    </div>
+
+    <div class="ld-page-head">
+        <h1>{{ title }}</h1>
+    </div>
+
+    <div class="ld-panel ld-form-card">
+        <form method="post">
+            {% csrf_token %}
+            {% for field in form %}
+            <div class="form-group">
+                <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.help_text %}
+                <p style="font-size:0.8rem;color:var(--ld-soft);margin-top:0.35rem;">{{ field.help_text }}</p>
+                {% endif %}
+                {% for e in field.errors %}
+                <p style="color:var(--ld-red);font-size:0.82rem;margin-top:0.25rem;">{{ e }}</p>
+                {% endfor %}
+            </div>
+            {% endfor %}
+            <button type="submit" class="btn btn-primary">Save</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

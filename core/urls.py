@@ -1,11 +1,13 @@
 
-from django.urls import path
+from django.urls import include, path
 from .views import (
-    login_view, logout_view, home_view, landing_page, profile_view,
+    login_view, logout_view, home_redirect_view, ticket_list_view,
+    admin_dashboard_view, finance_dashboard_view, landing_page, profile_view,
     ticket_create_view, ticket_detail_view,
     user_list_view, user_create_view,
     customer_list_view, customer_create_view, customer_detail_view,
     customer_search_api, agent_search_api,
+    router_list_view, router_create_view, router_edit_view,
 )
 from .views_import import customer_import_view
 from .views_assistant import (
@@ -19,10 +21,13 @@ from .views_portal import (
 
 urlpatterns = [
     path("", landing_page, name="landing"),
-    path("home/", home_view, name="home"),
+    path("dashboard/", admin_dashboard_view, name="admin_dashboard"),
+    path("finance/", finance_dashboard_view, name="finance_dashboard"),
+    path("home/", home_redirect_view, name="home"),
     path("login/", login_view, name="login"),
     path("logout/", logout_view, name="logout"),
     path("profile/", profile_view, name="profile"),
+    path("tickets/", ticket_list_view, name="ticket_list"),
     path("tickets/create/", ticket_create_view, name="ticket_create"),
     path("tickets/<str:ticket_id>/", ticket_detail_view, name="ticket_detail"),
     path("users/", user_list_view, name="user_list"),
@@ -31,6 +36,9 @@ urlpatterns = [
     path("customers/create/", customer_create_view, name="customer_create"),
     path("customers/import/", customer_import_view, name="customer_import"),
     path("customers/<int:pk>/", customer_detail_view, name="customer_detail"),
+    path("routers/", router_list_view, name="router_list"),
+    path("routers/create/", router_create_view, name="router_create"),
+    path("routers/<int:pk>/edit/", router_edit_view, name="router_edit"),
     path("api/customers/search/", customer_search_api, name="customer_search_api"),
     path("api/agents/search/", agent_search_api, name="agent_search_api"),
     path("portal/", portal_home, name="portal_home"),
@@ -44,6 +52,7 @@ urlpatterns = [
     path("api/assistant/chat/stream/", assistant_chat_stream_api, name="assistant_chat_stream_api"),
     path("api/categories/suggest/", category_suggest_api, name="category_suggest_api"),
     path("api/whatsapp/webhook/", whatsapp_webhook, name="whatsapp_webhook"),
+    path("", include("billing.urls")),
 ]
 
 from .url_handlers import handler400, handler403, handler404, handler500

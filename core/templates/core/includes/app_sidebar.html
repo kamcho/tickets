@@ -1,0 +1,118 @@
+<aside class="app-sidebar" id="app-sidebar" aria-label="Main navigation">
+    <div class="app-sidebar__brand">
+        <a href="{% if user.role == 'Admin' %}{% url 'admin_dashboard' %}{% else %}{% url 'ticket_list' %}{% endif %}" class="app-sidebar__brand-link">
+            <span class="app-sidebar__logo">M</span>
+            <span class="app-sidebar__brand-text">
+                <strong>Metrolinks</strong>
+                <small>Support Center</small>
+            </span>
+        </a>
+        <button type="button" class="app-sidebar__close" id="app-sidebar-close" aria-label="Close sidebar">
+            <i data-feather="x"></i>
+        </button>
+    </div>
+
+    <nav class="app-sidebar__nav">
+        <p class="app-sidebar__section-label">Overview</p>
+        {% if user.role == 'Admin' %}
+        <a href="{% url 'admin_dashboard' %}" class="app-sidebar__link {% if '/dashboard' in request.path %}active{% endif %}">
+            <i data-feather="bar-chart-2"></i>
+            <span>Ops Dashboard</span>
+        </a>
+        {% endif %}
+        {% if user.role == 'Admin' or user.role == 'Receptionist' %}
+        <a href="{% url 'finance_dashboard' %}" class="app-sidebar__link {% if '/finance' in request.path %}active{% endif %}">
+            <i data-feather="pie-chart"></i>
+            <span>Finance</span>
+        </a>
+        {% endif %}
+        <a href="{% url 'ticket_list' %}" class="app-sidebar__link {% if request.path == '/tickets/' or request.path == '/tickets' %}active{% endif %}">
+            <i data-feather="life-buoy"></i>
+            <span>Tickets</span>
+        </a>
+        {% if can_create_ticket %}
+        <a href="{% url 'ticket_create' %}" class="app-sidebar__link {% if 'tickets/create' in request.path %}active{% endif %}">
+            <i data-feather="plus-circle"></i>
+            <span>Open Ticket</span>
+        </a>
+        {% endif %}
+
+        {% if user.role == 'Admin' or user.role == 'Receptionist' %}
+        <p class="app-sidebar__section-label">Billing</p>
+        <a href="{% url 'billing_plan_list' %}" class="app-sidebar__link {% if '/billing/plans' in request.path %}active{% endif %}">
+            <i data-feather="layers"></i>
+            <span>Plans</span>
+        </a>
+        <a href="{% url 'billing_invoice_list' %}" class="app-sidebar__link {% if '/billing/invoices' in request.path %}active{% endif %}">
+            <i data-feather="file-text"></i>
+            <span>Invoices</span>
+        </a>
+        <a href="{% url 'billing_payment_list' %}" class="app-sidebar__link {% if '/billing/payments' in request.path and '/stk' not in request.path and '/pull' not in request.path and '/manual' not in request.path %}active{% endif %}">
+            <i data-feather="credit-card"></i>
+            <span>Payments</span>
+        </a>
+        <a href="{% url 'billing_expenditure_list' %}" class="app-sidebar__link {% if '/billing/expenses' in request.path %}active{% endif %}">
+            <i data-feather="minus-circle"></i>
+            <span>Expenses</span>
+        </a>
+        <a href="{% url 'billing_stk_push' %}" class="app-sidebar__link {% if '/stk' in request.path %}active{% endif %}">
+            <i data-feather="smartphone"></i>
+            <span>STK Push</span>
+        </a>
+        <a href="{% url 'billing_pull_transaction' %}" class="app-sidebar__link {% if '/payments/pull' in request.path %}active{% endif %}">
+            <i data-feather="download-cloud"></i>
+            <span>Pull transaction</span>
+        </a>
+        <a href="{% url 'billing_manual_payment' %}" class="app-sidebar__link {% if '/payments/manual' in request.path %}active{% endif %}">
+            <i data-feather="edit-3"></i>
+            <span>Manual payment</span>
+        </a>
+        {% endif %}
+
+        {% if user.role == 'Admin' or user.role == 'Receptionist' %}
+        <p class="app-sidebar__section-label">Directory</p>
+        <a href="{% url 'customer_list' %}" class="app-sidebar__link {% if '/customers' in request.path %}active{% endif %}">
+            <i data-feather="briefcase"></i>
+            <span>Customers</span>
+        </a>
+        <a href="{% url 'customer_create' %}" class="app-sidebar__link {% if '/customers/create' in request.path %}active{% endif %}">
+            <i data-feather="user-plus"></i>
+            <span>Add Customer</span>
+        </a>
+        {% endif %}
+        {% if user.role == 'Admin' %}
+        <a href="{% url 'router_list' %}" class="app-sidebar__link {% if '/routers' in request.path %}active{% endif %}">
+            <i data-feather="server"></i>
+            <span>MikroTik towers</span>
+        </a>
+        <a href="{% url 'router_create' %}" class="app-sidebar__link {% if '/routers/create' in request.path %}active{% endif %}">
+            <i data-feather="plus-square"></i>
+            <span>Add MikroTik</span>
+        </a>
+        <a href="{% url 'user_list' %}" class="app-sidebar__link {% if '/users' in request.path %}active{% endif %}">
+            <i data-feather="users"></i>
+            <span>Users</span>
+        </a>
+        <a href="/admin/" class="app-sidebar__link" target="_blank" rel="noopener">
+            <i data-feather="settings"></i>
+            <span>Admin Console</span>
+        </a>
+        {% endif %}
+    </nav>
+
+    <div class="app-sidebar__footer">
+        <button type="button" class="theme-toggle" id="theme-toggle" aria-label="Toggle color theme">
+            <i data-feather="moon" class="theme-toggle-icon-dark"></i>
+            <i data-feather="sun" class="theme-toggle-icon-light" style="display:none;"></i>
+            <span class="theme-toggle-label">Dark mode</span>
+        </button>
+        <a href="{% url 'profile' %}" class="app-sidebar__user">
+            <span class="app-sidebar__avatar">{{ user.email|slice:":1"|upper }}</span>
+            <span class="app-sidebar__user-meta">
+                <strong>{% if user.first_name %}{{ user.first_name }}{% else %}{{ user.email }}{% endif %}</strong>
+                <small>{{ user.role|default:"Staff" }}</small>
+            </span>
+        </a>
+    </div>
+</aside>
+<div class="app-sidebar-backdrop" id="app-sidebar-backdrop" aria-hidden="true"></div>

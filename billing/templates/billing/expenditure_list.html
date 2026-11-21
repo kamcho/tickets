@@ -1,0 +1,103 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Expenses — Metrolinks{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'core/css/light-dashboard.css' %}?v=14">
+{% endblock %}
+
+{% block content %}
+<div class="ld-shell">
+    <div class="ld-topbar">
+        <div class="ld-filters">
+            <a href="{% url 'finance_dashboard' %}" class="ld-chip">← Finance</a>
+            <span class="ld-chip active">Expenses</span>
+        </div>
+        <div class="ld-modes">
+            <a href="{% url 'billing_expenditure_create' %}">Add expense</a>
+        </div>
+    </div>
+
+    <div class="ld-page-head" style="display:flex;justify-content:space-between;align-items:flex-end;gap:1rem;flex-wrap:wrap;">
+        <div>
+            <h1>Expenses</h1>
+            <span class="ld-page-meta">
+                Recorded spending
+                {% if total_amount %}· Filtered total <strong>KES {{ total_amount }}</strong>{% endif %}
+            </span>
+        </div>
+        <a href="{% url 'billing_expenditure_create' %}" class="ld-btn primary">Add expense</a>
+    </div>
+
+    <div class="ld-panel" style="margin-bottom:1.25rem;">
+        <form method="get" class="ld-filter-bar">
+            <div class="form-group" style="flex:1;min-width:180px;">
+                <label class="form-label" for="q">Search</label>
+                <input type="text" name="q" id="q" class="form-input" value="{{ q }}" placeholder="Title or description">
+            </div>
+            <div class="form-group" style="width:180px;">
+                <label class="form-label" for="method">Payment method</label>
+                <select name="method" id="method" class="form-input">
+                    <option value="">All</option>
+                    {% for value, label in method_choices %}
+                    <option value="{{ value }}" {% if method == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="btn btn-secondary">Filter</button>
+            {% if q or method %}
+            <a href="{% url 'billing_expenditure_list' %}" class="btn btn-secondary">Clear</a>
+            {% endif %}
+        </form>
+    </div>
+
+    <div class="ld-table-wrap">
+        <div class="table-scroll">
+            <table class="ld-table">
+                <thead>
+                    <tr>
+                        <th>Title</th>
+                        <th>Amount</th>
+                        <th>Method</th>
+                        <th>Date</th>
+                        <th>Description</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for e in expenditures %}
+                    <tr>
+                        <td style="font-weight:700;">{{ e.title }}</td>
+                        <td style="font-weight:700;white-space:nowrap;">KES {{ e.amount }}</td>
+                        <td>{{ e.get_payment_method_display }}</td>
+                        <td style="font-size:0.82rem;color:#6b7280;white-space:nowrap;">{{ e.occurred_at }}</td>
+                        <td style="color:#6b7280;font-size:0.88rem;max-width:280px;">
+                            {{ e.description|default:"—"|truncatechars:80 }}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="ld-empty">
+                            No expenses yet.
+                            <a href="{% url 'billing_expenditure_create' %}">Add the first one</a>.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {% if page_obj.has_other_pages %}
+    <div class="ld-pager">
+        {% if page_obj.has_previous %}
+        <a class="ld-btn" href="?page={{ page_obj.previous_page_number }}&q={{ q }}&method={{ method }}">Previous</a>
+        {% endif %}
+        <span>Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+        <a class="ld-btn" href="?page={{ page_obj.next_page_number }}&q={{ q }}&method={{ method }}">Next</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

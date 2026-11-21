@@ -1,0 +1,50 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Subscribe {{ customer.display_name }}{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'core/css/light-dashboard.css' %}?v=14">
+{% endblock %}
+
+{% block content %}
+<div class="ld-shell">
+    <div class="ld-topbar">
+        <div class="ld-filters">
+            <a href="{% url 'customer_detail' customer.pk %}" class="ld-chip">← Customer</a>
+            <span class="ld-chip active">Subscribe</span>
+        </div>
+    </div>
+
+    <div class="ld-page-head">
+        <h1>Start subscription</h1>
+        <span class="ld-page-meta">{{ customer.display_name }} · expiry = start + 1 calendar month</span>
+    </div>
+
+    {% if active_subscription %}
+    <div class="ld-alert info">
+        <strong>Already active:</strong> {{ active_subscription.plan.name }} —
+        expires {{ active_subscription.expires_at|date:"Y-m-d H:i:s" }}
+    </div>
+    {% else %}
+    <div class="ld-panel ld-form-card">
+        <form method="post">
+            {% csrf_token %}
+            {% for field in form %}
+            <div class="form-group">
+                <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.help_text %}
+                <p style="font-size:0.8rem;color:var(--ld-soft);margin-top:0.35rem;">{{ field.help_text }}</p>
+                {% endif %}
+                {% for e in field.errors %}
+                <p style="color:var(--ld-red);font-size:0.82rem;margin-top:0.25rem;">{{ e }}</p>
+                {% endfor %}
+            </div>
+            {% endfor %}
+            <button type="submit" class="btn btn-primary">Activate subscription</button>
+        </form>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

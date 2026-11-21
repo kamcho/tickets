@@ -1,0 +1,390 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Finance Dashboard — Metrolinks{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'core/css/light-dashboard.css' %}?v=12">
+<link rel="stylesheet" href="{% static 'core/css/finance-dashboard.css' %}?v=2">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="ld-shell">
+    <div class="ld-topbar">
+        <div class="ld-filters">
+            <span class="ld-filter-label">Segments</span>
+            <span class="ld-chip active">Overall <span class="x">×</span></span>
+
+            <span class="ld-filter-label" style="margin-left:0.5rem;">Filters</span>
+            <a class="ld-chip {% if days == 7 %}active{% endif %}" href="?days=7">Date: Last 7 days {% if days == 7 %}<span class="x">×</span>{% endif %}</a>
+            <a class="ld-chip {% if days == 30 %}active{% endif %}" href="?days=30">Date: Last 30 days {% if days == 30 %}<span class="x">×</span>{% endif %}</a>
+            <a class="ld-chip {% if days == 90 %}active{% endif %}" href="?days=90">Date: Last 90 days {% if days == 90 %}<span class="x">×</span>{% endif %}</a>
+            <a class="ld-chip" href="?days=30">Clear all</a>
+        </div>
+        <div class="ld-modes">
+            {% if user.role == 'Admin' %}
+            <a href="{% url 'admin_dashboard' %}">Ops</a>
+            {% endif %}
+            <a href="{% url 'finance_dashboard' %}?days={{ days }}" class="active">Finance</a>
+            <a href="{% url 'billing_stk_push' %}">STK Push</a>
+        </div>
+    </div>
+
+    <div class="ld-page-head">
+        <h1>Finance</h1>
+        <span class="ld-page-meta">Last {{ days }} days · M-Pesa collections</span>
+    </div>
+
+    <div class="ld-kpi-row">
+        <div class="ld-stat tone-orange">
+            <div class="ld-stat-top">
+                <div class="ld-stat-icon"><i data-feather="dollar-sign"></i></div>
+                <div class="ld-stat-value sm">KES {{ mpesa.amount_period }}</div>
+            </div>
+            <div class="ld-stat-label">Total revenue</div>
+            <div class="ld-stat-foot {{ amount_trend.dir }}">
+                {% if amount_trend.dir == 'up' %}
+                <span class="mark">↑</span>
+                {{ amount_trend.pct }}% more than prior period
+                {% elif amount_trend.dir == 'down' %}
+                <span class="mark">↓</span>
+                {{ amount_trend.pct }}% less than prior period
+                {% else %}
+                <span class="mark">✓</span>
+                Without changes
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="ld-stat tone-pink">
+            <div class="ld-stat-top">
+                <div class="ld-stat-icon"><i data-feather="percent"></i></div>
+                <div class="ld-stat-value">{{ success_rate }}%</div>
+            </div>
+            <div class="ld-stat-label">Success rate</div>
+            <div class="ld-stat-foot {% if success_rate >= 70 %}up{% elif success_rate >= 40 %}flat{% else %}down{% endif %}">
+                {% if success_rate >= 70 %}
+                <span class="mark">↑</span>
+                {{ mpesa.success_period }} paid · healthy
+                {% elif success_rate >= 40 %}
+                <span class="mark">✓</span>
+                {{ mpesa.failed_period }} failed / cancelled
+                {% else %}
+                <span class="mark">↓</span>
+                {{ mpesa.failed_period }} failed / cancelled
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="ld-stat tone-blue">
+            <div class="ld-stat-top">
+                <div class="ld-stat-icon"><i data-feather="clock"></i></div>
+                <div class="ld-stat-value">{{ mpesa.pending }}</div>
+            </div>
+            <div class="ld-stat-label">Pending STK</div>
+            <div class="ld-stat-foot {% if mpesa.pending %}warn{% else %}flat{% endif %}">
+                {% if mpesa.pending %}
+                <span class="mark">↑</span>
+                {{ mpesa.pending }} awaiting customer PIN
+                {% else %}
+                <span class="mark">✓</span>
+                Without changes
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="ld-panel fin-report-card">
+        <div class="fin-report-head">
+            <h3>Income vs expenditure</h3>
+            <span class="ld-freq">M-Pesa collections vs recorded spending</span>
+        </div>
+        <div class="fin-report-chart">
+            <canvas id="chartIncomeExp"></canvas>
+        </div>
+        <div class="fin-report-stats">
+            <div class="fin-report-stat">
+                <div class="fin-report-icon income" aria-hidden="true">✦</div>
+                <div>
+                    <div class="fin-report-label">Income</div>
+                    <div class="fin-report-value">KES {{ income_report.month }}</div>
+                    <div class="fin-report-meta">
+                        {% if income_report.month_trend.dir == 'down' %}
+                        <span class="chg down">↓{{ income_report.month_trend.pct }}%</span>
+                        {% else %}
+                        <span class="chg up">↑{{ income_report.month_trend.pct }}%</span>
+                        {% endif %}
+                        <span class="sub">{{ income_report.month_delta }} KES · 30d</span>
+                    </div>
+                </div>
+            </div>
+            <div class="fin-report-stat">
+                <div class="fin-report-icon spend" aria-hidden="true">◈</div>
+                <div>
+                    <div class="fin-report-label">Expenditure</div>
+                    <div class="fin-report-value">KES {{ income_report.month_exp }}</div>
+                    <div class="fin-report-meta">
+                        {% if income_report.exp_trend.dir == 'down' %}
+                        <span class="chg down">↓{{ income_report.exp_trend.pct }}%</span>
+                        {% else %}
+                        <span class="chg up">↑{{ income_report.exp_trend.pct }}%</span>
+                        {% endif %}
+                        <span class="sub">{{ income_report.exp_delta }} KES · 30d</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="ld-analytics">
+        <div class="ld-panel">
+            <div class="ld-panel-head">
+                <h3>Payment health score</h3>
+            </div>
+            <div class="ld-gauge-wrap">
+                <canvas id="chartGauge"></canvas>
+                <div class="ld-gauge-center">
+                    <div class="score">{{ success_rate }}</div>
+                    <div class="sub">Success score</div>
+                </div>
+            </div>
+            <div class="ld-legend">
+                <span class="l-fail">Failed</span>
+                <span class="l-pend">Pending</span>
+                <span class="l-ok">Success</span>
+            </div>
+        </div>
+
+        <div class="ld-panel">
+            <div class="ld-panel-head">
+                <h3>Collections over time</h3>
+                <div style="display:flex;align-items:center;gap:0.65rem;">
+                    <span class="ld-freq">Frequency: {{ mpesa.success_period }}</span>
+                    <select class="ld-select" onchange="location.href='?days='+this.value">
+                        <option value="7" {% if days == 7 %}selected{% endif %}>Last 7 days</option>
+                        <option value="30" {% if days == 30 %}selected{% endif %}>Last 30 days</option>
+                        <option value="90" {% if days == 90 %}selected{% endif %}>Last 90 days</option>
+                    </select>
+                </div>
+            </div>
+            <div class="ld-chart-wrap">
+                <canvas id="chartTrend"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="ld-table-wrap">
+        <div class="ld-table-head">
+            <h3>Recent transactions</h3>
+            <a href="{% url 'billing_payment_list' %}">View all →</a>
+        </div>
+        <div class="table-scroll">
+            <table class="ld-table">
+                <thead>
+                    <tr>
+                        <th>Payment</th>
+                        <th>Customer</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                        <th>Receipt</th>
+                        <th>Date</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in mpesa.recent %}
+                    <tr>
+                        <td><a href="{% url 'billing_payment_detail' p.payment_id %}" style="color:#2563eb;font-weight:700;text-decoration:none;">{{ p.payment_id }}</a></td>
+                        <td>
+                            <div style="font-weight:600;">{% if p.customer %}{{ p.customer.display_name }}{% else %}Walk-in{% endif %}</div>
+                            <div style="color:#9ca3af;font-size:0.78rem;">{{ p.phone }}</div>
+                        </td>
+                        <td style="font-weight:700;">KES {{ p.amount }}</td>
+                        <td>
+                            {% if p.status == 'success' %}<span class="ld-pill ok">Paid</span>
+                            {% elif p.status == 'pending' %}<span class="ld-pill warn">Pending</span>
+                            {% elif p.status == 'cancelled' %}<span class="ld-pill mute">Cancelled</span>
+                            {% else %}<span class="ld-pill bad">Failed</span>{% endif %}
+                        </td>
+                        <td>{{ p.mpesa_receipt_number|default:"—" }}</td>
+                        <td style="color:#6b7280;font-size:0.8rem;">{{ p.created_at }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="ld-empty">No payments yet. Send an STK Push to populate this table.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{{ chart_json|json_script:"finance-chart-data" }}
+<script>
+(function () {
+    let data = JSON.parse(document.getElementById('finance-chart-data').textContent);
+    if (typeof data === 'string') {
+        try { data = JSON.parse(data); } catch (e) {}
+    }
+    const failed = data.status[2] || 0;
+    const pending = data.status[1] || 0;
+    const success = data.status[0] || 0;
+
+    new Chart(document.getElementById('chartGauge'), {
+        type: 'doughnut',
+        data: {
+            labels: ['Failed', 'Pending', 'Success'],
+            datasets: [{
+                data: [failed || 0.0001, pending || 0.0001, success || 0.0001],
+                backgroundColor: ['#f87171', '#fbbf24', '#2dd4bf'],
+                borderWidth: 0,
+                circumference: 180,
+                rotation: 270,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '72%',
+            plugins: {
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: (ctx) => ctx.label + ': ' + Math.round(ctx.raw === 0.0001 ? 0 : ctx.raw)
+                    }
+                }
+            }
+        }
+    });
+
+    const amounts = data.amounts || [];
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const gridColor = isDark ? 'rgba(255,255,255,0.06)' : '#eef2f7';
+    const tickColor = isDark ? '#64748b' : '#9ca3af';
+    const green = '#22c55e';
+
+    (function initIncomeExpChart() {
+        const canvas = document.getElementById('chartIncomeExp');
+        if (!canvas) return;
+        const income = (data.amounts || []).map(Number);
+        const expense = (data.expenditure || []).map(Number);
+        const labels = data.labels || [];
+
+        new Chart(canvas, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [
+                    {
+                        label: 'Income',
+                        data: income,
+                        borderColor: green,
+                        backgroundColor: function (context) {
+                            const chart = context.chart;
+                            const { ctx, chartArea } = chart;
+                            if (!chartArea) return 'rgba(34,197,94,0.12)';
+                            const g = ctx.createLinearGradient(0, chartArea.top, 0, chartArea.bottom);
+                            g.addColorStop(0, 'rgba(34,197,94,0.22)');
+                            g.addColorStop(1, 'rgba(34,197,94,0)');
+                            return g;
+                        },
+                        borderWidth: 2.5,
+                        tension: 0.4,
+                        pointRadius: 0,
+                        pointHoverRadius: 5,
+                        pointBackgroundColor: '#fff',
+                        pointBorderColor: green,
+                        pointBorderWidth: 2,
+                        fill: true,
+                        order: 2,
+                    },
+                    {
+                        label: 'Expenditure',
+                        data: expense,
+                        borderColor: isDark ? 'rgba(251,191,36,0.7)' : '#f59e0b',
+                        backgroundColor: 'transparent',
+                        borderWidth: 2,
+                        borderDash: [5, 4],
+                        tension: 0.4,
+                        pointRadius: 0,
+                        pointHoverRadius: 4,
+                        fill: false,
+                        order: 1,
+                    },
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function (ctx) {
+                                return ctx.dataset.label + ': KES ' + Number(ctx.raw || 0).toLocaleString();
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        display: true,
+                        grid: { display: false, drawBorder: false },
+                        border: { display: false },
+                        ticks: { display: false },
+                    },
+                    y: {
+                        beginAtZero: true,
+                        border: { display: false },
+                        grid: {
+                            color: gridColor,
+                            borderDash: [4, 4],
+                            drawBorder: false,
+                        },
+                        ticks: { display: false },
+                    }
+                }
+            }
+        });
+    })();
+
+    new Chart(document.getElementById('chartTrend'), {
+        type: 'bar',
+        data: {
+            labels: data.labels,
+            datasets: [{
+                label: 'KES collected',
+                data: amounts,
+                backgroundColor: isDark ? '#60a5fa' : '#93c5fd',
+                borderRadius: 6,
+                borderSkipped: false,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: {
+                    grid: { display: false, drawBorder: false },
+                    border: { display: false },
+                    ticks: { color: tickColor, maxTicksLimit: 8, font: { size: 11 } }
+                },
+                y: {
+                    beginAtZero: true,
+                    border: { display: false },
+                    grid: { color: gridColor, drawBorder: false },
+                    ticks: {
+                        color: tickColor,
+                        font: { size: 11 },
+                        callback: function (v) {
+                            return Number(v).toLocaleString();
+                        }
+                    }
+                }
+            }
+        }
+    });
+})();
+</script>
+{% endblock %}

@@ -21,11 +21,11 @@ media/
 staticfiles/
 
 # Environment configurations containing secrets (CRITICAL)
+# Block all .env* files; only commit sanitized templates (negated below).
 .env
-.env.local
-.env.*.local
-.env.backup
-.env.production
+.env.*
+!.env.example
+!.env.hostinger.example
 
 # Dependency virtual environments
 .venv/

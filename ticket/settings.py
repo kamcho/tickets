@@ -23,11 +23,17 @@ dotenv.load_dotenv(BASE_DIR / '.env')
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/6.0/howto/deployment/checklist/
 
-# SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-fallback-w!6pye!qhw01mevr77v1(5cmwobbtn#pit9+xl0+0k-4np7z3+')
-
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'True').lower() in ('true', '1', 't', 'y', 'yes')
+
+# SECURITY WARNING: keep the secret key used in production secret!
+_SECRET_FALLBACK = 'django-insecure-fallback-w!6pye!qhw01mevr77v1(5cmwobbtn#pit9+xl0+0k-4np7z3+'
+SECRET_KEY = os.getenv('SECRET_KEY', _SECRET_FALLBACK)
+if not DEBUG and (not SECRET_KEY or SECRET_KEY == _SECRET_FALLBACK or SECRET_KEY.startswith('django-insecure')):
+    raise ValueError(
+        'Set a strong SECRET_KEY in .env before running with DEBUG=False '
+        '(see .env.hostinger.example).'
+    )
 
 ALLOWED_HOSTS = [h.strip() for h in os.getenv(
     'ALLOWED_HOSTS',
@@ -101,6 +107,70 @@ SMS_DEBUG_PRINT = os.getenv('SMS_DEBUG_PRINT', str(DEBUG)).lower() in (
     'true', '1', 't', 'y', 'yes',
 )
 
+# --- Safaricom Daraja M-Pesa (STK Push) ---
+# Sandbox: https://developer.safaricom.co.ke/  Production: same portal, live credentials
+MPESA_CONSUMER_KEY = os.getenv('MPESA_CONSUMER_KEY', '').strip()
+MPESA_CONSUMER_SECRET = os.getenv('MPESA_CONSUMER_SECRET', '').strip()
+MPESA_SHORTCODE = os.getenv('MPESA_SHORTCODE', '').strip()  # Paybill or Till
+MPESA_PASSKEY = os.getenv('MPESA_PASSKEY', '').strip()
+MPESA_ENVIRONMENT = os.getenv('MPESA_ENVIRONMENT', 'sandbox').strip().lower()  # sandbox|production
+# PartyB usually = shortcode for Paybill; for Till use store number if different
+MPESA_PARTY_B = os.getenv('MPESA_PARTY_B', '').strip()
+MPESA_TRANSACTION_TYPE = os.getenv(
+    'MPESA_TRANSACTION_TYPE',
+    'CustomerPayBillOnline',  # or CustomerBuyGoodsOnline for Till
+).strip()
+# Must be a public HTTPS URL Safaricom can POST to (ngrok in dev)
+MPESA_CALLBACK_URL = os.getenv('MPESA_CALLBACK_URL', '').strip()
+if not MPESA_CALLBACK_URL and SITE_BASE_URL:
+    MPESA_CALLBACK_URL = f'{SITE_BASE_URL}/api/mpesa/stk/callback/'
+
+# Transaction Status Query (pull off-app receipts) — needs Daraja initiator role
+MPESA_INITIATOR_NAME = os.getenv('MPESA_INITIATOR_NAME', '').strip()
+MPESA_SECURITY_CREDENTIAL = os.getenv('MPESA_SECURITY_CREDENTIAL', '').strip()
+MPESA_IDENTIFIER_TYPE = os.getenv('MPESA_IDENTIFIER_TYPE', '4').strip()  # 4 = org shortcode
+MPESA_TRANSACTION_RESULT_URL = os.getenv('MPESA_TRANSACTION_RESULT_URL', '').strip()
+MPESA_TRANSACTION_TIMEOUT_URL = os.getenv('MPESA_TRANSACTION_TIMEOUT_URL', '').strip()
+if SITE_BASE_URL:
+    if not MPESA_TRANSACTION_RESULT_URL:
+        MPESA_TRANSACTION_RESULT_URL = f'{SITE_BASE_URL}/api/mpesa/transaction/result/'
+    if not MPESA_TRANSACTION_TIMEOUT_URL:
+        MPESA_TRANSACTION_TIMEOUT_URL = f'{SITE_BASE_URL}/api/mpesa/transaction/timeout/'
+
+# --- Celery + Redis (Phase 4 on-the-dot disconnect) ---
+CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://127.0.0.1:6379/0').strip()
+CELERY_RESULT_BACKEND = os.getenv('CELERY_RESULT_BACKEND', CELERY_BROKER_URL).strip()
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_ZONE = os.getenv('TIME_ZONE', 'Africa/Nairobi')
+CELERY_ENABLE_UTC = True
+# Eager mode: run tasks inline when Redis/worker not available (local/dev/tests)
+CELERY_TASK_ALWAYS_EAGER = os.getenv(
+    'CELERY_TASK_ALWAYS_EAGER',
+    'True' if DEBUG else 'False',
+).lower() in ('true', '1', 't', 'y', 'yes')
+CELERY_TASK_EAGER_PROPAGATES = True
+
+# --- MikroTik RouterOS REST (Phase 4 PPPoE) ---
+# Preferred: credentials per router in Django Admin → Network routers.
+# .env is a single-router fallback only (also requires MIKROTIK_ENABLED=True).
+MIKROTIK_HOST = os.getenv('MIKROTIK_HOST', '').strip()  # e.g. 10.0.0.1 or router.vpn
+MIKROTIK_USER = os.getenv('MIKROTIK_USER', '').strip()
+MIKROTIK_PASSWORD = os.getenv('MIKROTIK_PASSWORD', '').strip()
+MIKROTIK_SSL = os.getenv('MIKROTIK_SSL', 'True').lower() in ('true', '1', 't', 'y', 'yes')
+MIKROTIK_VERIFY_SSL = os.getenv('MIKROTIK_VERIFY_SSL', 'False').lower() in (
+    'true', '1', 't', 'y', 'yes',
+)  # False = allow self-signed on private HTTPS
+MIKROTIK_PORT = int(os.getenv('MIKROTIK_PORT', '443' if MIKROTIK_SSL else '80'))
+MIKROTIK_TIMEOUT = float(os.getenv('MIKROTIK_TIMEOUT', '8'))
+MIKROTIK_SERVICE = os.getenv('MIKROTIK_SERVICE', 'pppoe').strip().lower()  # pppoe only for now
+MIKROTIK_ENABLED = os.getenv('MIKROTIK_ENABLED', 'False').lower() in (
+    'true', '1', 't', 'y', 'yes',
+) and bool(MIKROTIK_HOST and MIKROTIK_USER and MIKROTIK_PASSWORD)
+# PPP username = normalized customer phone (254…) by default
+MIKROTIK_USERNAME_IS_PHONE = os.getenv('MIKROTIK_USERNAME_IS_PHONE', 'True').lower() in (
+    'true', '1', 't', 'y', 'yes',
+)
+
 
 # Application definition
 
@@ -113,6 +183,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'django_hosts',
     'core',
+    'billing',
 ]
 
 MIDDLEWARE = [
@@ -132,6 +203,11 @@ ROOT_URLCONF = 'ticket.urls'
 ROOT_HOSTCONF = 'ticket.hosts'
 # Bare host (127.0.0.1 / localhost) uses this named pattern. In dev, 'default' includes /login/.
 DEFAULT_HOST = 'default' if DEBUG else 'www'
+# Required by django-hosts reverse() for www/tickets subdomains on the VPS.
+PARENT_HOST = os.getenv(
+    'PARENT_HOST',
+    'localhost:8000' if DEBUG else 'metrolinkssolutionltd.co.ke',
+)
 
 TEMPLATES = [
     {
@@ -147,6 +223,8 @@ TEMPLATES = [
                 'core.context_processors.portal_customer',
                 'core.context_processors.staff_permissions',
                 'core.context_processors.company_contact',
+                'core.context_processors.app_chrome',
+                'core.context_processors.sms_activity_report',
             ],
         },
     },
@@ -161,6 +239,12 @@ WSGI_APPLICATION = 'ticket.wsgi.application'
 DB_ENGINE = os.getenv('DB_ENGINE', 'sqlite3')
 
 if DB_ENGINE == 'mysql':
+    # Hostinger VPS / Ubuntu: PyMySQL avoids compiling mysqlclient.
+    try:
+        import pymysql
+        pymysql.install_as_MySQLdb()
+    except ImportError:
+        pass
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.mysql',
@@ -222,7 +306,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'UTC'
+TIME_ZONE = os.getenv('TIME_ZONE', 'Africa/Nairobi')
 
 USE_I18N = True
 
@@ -265,10 +349,46 @@ MEDIA_ROOT = BASE_DIR / 'media'
 
 # Production Security Settings (Enabled when DEBUG is False or controlled by environment)
 if not DEBUG:
-    SECURE_SSL_REDIRECT = os.getenv('SECURE_SSL_REDIRECT', 'False').lower() in ('true', '1', 't', 'y', 'yes')
-    SESSION_COOKIE_SECURE = os.getenv('SESSION_COOKIE_SECURE', 'False').lower() in ('true', '1', 't', 'y', 'yes')
-    CSRF_COOKIE_SECURE = os.getenv('CSRF_COOKIE_SECURE', 'False').lower() in ('true', '1', 't', 'y', 'yes')
+    # Nginx terminates TLS and sets X-Forwarded-Proto
+    SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+    SECURE_SSL_REDIRECT = os.getenv('SECURE_SSL_REDIRECT', 'True').lower() in ('true', '1', 't', 'y', 'yes')
+    SESSION_COOKIE_SECURE = os.getenv('SESSION_COOKIE_SECURE', 'True').lower() in ('true', '1', 't', 'y', 'yes')
+    CSRF_COOKIE_SECURE = os.getenv('CSRF_COOKIE_SECURE', 'True').lower() in ('true', '1', 't', 'y', 'yes')
+    SECURE_HSTS_SECONDS = int(os.getenv('SECURE_HSTS_SECONDS', '31536000'))
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = os.getenv(
+        'SECURE_HSTS_INCLUDE_SUBDOMAINS', 'True',
+    ).lower() in ('true', '1', 't', 'y', 'yes')
     SECURE_BROWSER_XSS_FILTER = True
     SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = 'DENY'
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Logging — visible under journalctl -u metrolinks-gunicorn
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '[{asctime}] {levelname} {name}: {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'console': {
+            'class': 'logging.StreamHandler',
+            'formatter': 'verbose',
+        },
+    },
+    'root': {
+        'handlers': ['console'],
+        'level': os.getenv('LOG_LEVEL', 'INFO'),
+    },
+    'loggers': {
+        'django.request': {
+            'handlers': ['console'],
+            'level': 'WARNING',
+            'propagate': False,
+        },
+    },
+}

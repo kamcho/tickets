@@ -244,3 +244,144 @@ class AssistantMessage(models.Model):
 
     def __str__(self):
         return f'{self.role} @ {self.conversation_id}'
+
+
+class NetworkRouter(models.Model):
+    """Physical MikroTik (per site/tower) — API credentials live here (DB), not only .env."""
+
+    STATUS_ONLINE = 'online'
+    STATUS_UNREACHABLE = 'unreachable'
+    STATUS_LOS = 'los'
+    STATUS_UNKNOWN = 'unknown'
+    STATUS_CHOICES = (
+        (STATUS_ONLINE, 'Online'),
+        (STATUS_UNREACHABLE, 'Unreachable'),
+        (STATUS_LOS, 'LOS / Alignment issue'),
+        (STATUS_UNKNOWN, 'Unknown'),
+    )
+
+    name = models.CharField(max_length=120)
+    ip_address = models.GenericIPAddressField(
+        null=True,
+        blank=True,
+        help_text='Optional display / management IP. Prefer api_host for REST.',
+    )
+    location = models.CharField(max_length=255, blank=True, default='')
+    status = models.CharField(
+        max_length=20, choices=STATUS_CHOICES, default=STATUS_UNKNOWN, db_index=True,
+    )
+    customers_served = models.PositiveIntegerField(
+        default=0,
+        help_text='Approx. customers behind this router (manual or synced).',
+    )
+    notes = models.TextField(blank=True, default='')
+    last_seen_at = models.DateTimeField(null=True, blank=True)
+    is_active = models.BooleanField(default=True)
+    is_default = models.BooleanField(
+        default=False,
+        help_text='Default tower for new PPPoE accounts (ISP infrastructure — not a customer home router).',
+    )
+
+    # RouterOS REST — one row per physical router
+    api_host = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        help_text='Hostname or IP for REST (e.g. 10.0.0.1 or router.vpn).',
+    )
+    api_user = models.CharField(max_length=64, blank=True, default='')
+    api_password = models.CharField(
+        max_length=255,
+        blank=True,
+        default='',
+        help_text='RouterOS API password (stored in DB; restrict admin access).',
+    )
+    api_ssl = models.BooleanField(default=True, help_text='Use HTTPS for REST')
+    api_verify_ssl = models.BooleanField(
+        default=False,
+        help_text='Verify TLS cert (False OK for private self-signed)',
+    )
+    api_port = models.PositiveIntegerField(
+        null=True,
+        blank=True,
+        help_text='Blank = 443 (HTTPS) or 80 (HTTP)',
+    )
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['name']
+        verbose_name = 'Network router'
+        verbose_name_plural = 'Network routers'
+
+    def __str__(self):
+        return f'{self.name} ({self.get_status_display()})'
+
+    def save(self, *args, **kwargs):
+        super().save(*args, **kwargs)
+        if self.is_default and self.is_active:
+            NetworkRouter.objects.filter(is_default=True).exclude(pk=self.pk).update(
+                is_default=False,
+            )
+
+    @property
+    def effective_api_host(self):
+        return (self.api_host or (str(self.ip_address) if self.ip_address else '')).strip()
+
+    def has_api_credentials(self):
+        return bool(self.effective_api_host and self.api_user and self.api_password)
+
+
+class CustomerHomeRouter(models.Model):
+    """Normal CPE / home Wi‑Fi router issued to a customer (not a MikroTik tower)."""
+
+    OWNERSHIP_COMPANY = 'company'
+    OWNERSHIP_CUSTOMER = 'customer'
+    OWNERSHIP_CHOICES = (
+        (OWNERSHIP_COMPANY, 'Company-owned (issued)'),
+        (OWNERSHIP_CUSTOMER, 'Customer-owned'),
+    )
+
+    customer = models.ForeignKey(
+        MyUser,
+        on_delete=models.CASCADE,
+        related_name='home_routers',
+        limit_choices_to={'role': 'Customer'},
+    )
+    brand = models.CharField(max_length=80, blank=True, default='')
+    model = models.CharField(max_length=120, blank=True, default='')
+    serial_number = models.CharField(max_length=120, blank=True, default='', db_index=True)
+    mac_address = models.CharField(max_length=32, blank=True, default='')
+    ssid = models.CharField(max_length=64, blank=True, default='', help_text='Wi‑Fi network name')
+    wifi_password = models.CharField(
+        max_length=128,
+        blank=True,
+        default='',
+        help_text='Staff-only — Wi‑Fi password if recorded',
+    )
+    ownership = models.CharField(
+        max_length=20,
+        choices=OWNERSHIP_CHOICES,
+        default=OWNERSHIP_COMPANY,
+    )
+    installed_at = models.DateField(null=True, blank=True)
+    notes = models.TextField(blank=True, default='')
+    is_active = models.BooleanField(default=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-is_active', '-installed_at', '-id']
+        verbose_name = 'Customer home router'
+        verbose_name_plural = 'Customer home routers'
+
+    def __str__(self):
+        label = ' '.join(p for p in (self.brand, self.model) if p).strip() or 'Home router'
+        if self.serial_number:
+            return f'{label} ({self.serial_number})'
+        return label
+
+    @property
+    def display_name(self):
+        return str(self)

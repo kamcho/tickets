@@ -1,0 +1,104 @@
+{% extends 'core/base.html' %}
+
+{% block title %}Network Routers - Metrolinks Support{% endblock %}
+
+{% block content %}
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2rem; flex-wrap: wrap; gap: 1rem;">
+    <div>
+        <h1 style="font-size: 2rem; font-weight: 800; letter-spacing: -0.025em; margin-bottom: 0.25rem;">MikroTik towers</h1>
+        <p style="color: var(--text-secondary); font-size: 0.9rem;">ISP infrastructure for managing PPPoE users (cut / restore). Customer home Wi‑Fi routers are recorded on each customer profile.</p>
+    </div>
+    <a href="{% url 'router_create' %}" class="btn btn-primary" style="padding: 0.75rem 1.5rem;" id="btn-add-router">
+        <i data-feather="plus-circle" style="width: 16px; height: 16px;"></i> Add Router
+    </a>
+</div>
+
+<div class="stats-grid">
+    <div class="card" style="padding: 1.5rem; text-align: center;">
+        <div style="font-size: 2.25rem; font-weight: 800; color: var(--primary); letter-spacing: -0.025em;">{{ metrics.total }}</div>
+        <div style="color: var(--text-secondary); font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Total</div>
+    </div>
+    <div class="card" style="padding: 1.5rem; text-align: center;">
+        <div style="font-size: 2.25rem; font-weight: 800; color: var(--accent); letter-spacing: -0.025em;">{{ metrics.active }}</div>
+        <div style="color: var(--text-secondary); font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Active</div>
+    </div>
+    <div class="card" style="padding: 1.5rem; text-align: center;">
+        <div style="font-size: 2.25rem; font-weight: 800; color: var(--primary); letter-spacing: -0.025em;">{{ metrics.with_api }}</div>
+        <div style="color: var(--text-secondary); font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">API Ready</div>
+    </div>
+    <div class="card" style="padding: 1.5rem; text-align: center;">
+        <div style="font-size: 2.25rem; font-weight: 800; color: var(--accent); letter-spacing: -0.025em;">{{ metrics.default }}</div>
+        <div style="color: var(--text-secondary); font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">Default</div>
+    </div>
+</div>
+
+<div class="card" style="padding: 1.25rem; margin-bottom: 2rem;">
+    <form method="get" id="router-search-form" class="filter-row" style="display: flex; gap: 1rem; align-items: flex-end; flex-wrap: wrap;">
+        <div class="form-group" style="flex: 1; min-width: 0; margin-bottom: 0;">
+            <label for="search-input" class="form-label" style="font-size: 0.8rem;">Search Routers</label>
+            <input type="text" name="search" id="search-input" class="form-input" placeholder="Name, location, host, IP…" value="{{ search }}">
+        </div>
+        <button type="submit" class="btn btn-primary" style="padding: 0.7rem 1.5rem;">
+            <i data-feather="search" style="width: 14px; height: 14px;"></i> Search
+        </button>
+        {% if search %}
+            <a href="{% url 'router_list' %}" class="btn btn-secondary" style="padding: 0.7rem 1.25rem;">Clear</a>
+        {% endif %}
+    </form>
+</div>
+
+<div class="card card--flush">
+    <div class="table-scroll">
+        <table style="width: 100%; min-width: 780px; border-collapse: collapse; font-size: 0.9rem;">
+            <thead>
+                <tr style="background: rgba(99, 102, 241, 0.08); border-bottom: 1px solid var(--border-color);">
+                    <th style="padding: 1rem 1.25rem; text-align: left; font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;">Router</th>
+                    <th style="padding: 1rem 1.25rem; text-align: left; font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;">API host</th>
+                    <th style="padding: 1rem 1.25rem; text-align: left; font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;">Location</th>
+                    <th style="padding: 1rem 1.25rem; text-align: center; font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;">Status</th>
+                    <th style="padding: 1rem 1.25rem; text-align: center; font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;">Flags</th>
+                    <th style="padding: 1rem 1.25rem; text-align: center; font-weight: 700; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 0.05em;">Action</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for router in routers %}
+                <tr style="border-bottom: 1px solid var(--border-color);">
+                    <td style="padding: 1rem 1.25rem;">
+                        <strong>{{ router.name }}</strong>
+                        {% if router.customers_served %}
+                        <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 0.15rem;">~{{ router.customers_served }} customers</div>
+                        {% endif %}
+                    </td>
+                    <td style="padding: 1rem 1.25rem; font-family: ui-monospace, monospace; font-size: 0.85rem;">
+                        {{ router.effective_api_host|default:"—" }}
+                        {% if router.has_api_credentials %}
+                        <div style="color: #16a34a; font-size: 0.75rem; margin-top: 0.15rem;">API credentials set</div>
+                        {% else %}
+                        <div style="color: var(--text-muted); font-size: 0.75rem; margin-top: 0.15rem;">No API credentials</div>
+                        {% endif %}
+                    </td>
+                    <td style="padding: 1rem 1.25rem;">{{ router.location|default:"—" }}</td>
+                    <td style="padding: 1rem 1.25rem; text-align: center;">{{ router.get_status_display }}</td>
+                    <td style="padding: 1rem 1.25rem; text-align: center; font-size: 0.8rem;">
+                        {% if router.is_default %}<span style="color: var(--primary); font-weight: 600;">Default</span>{% endif %}
+                        {% if not router.is_active %}<span style="color: var(--danger);">Inactive</span>{% endif %}
+                        {% if router.is_default and router.is_active %} · {% endif %}
+                        {% if router.is_active and not router.is_default %}<span style="color: var(--text-muted);">Active</span>{% endif %}
+                    </td>
+                    <td style="padding: 1rem 1.25rem; text-align: center;">
+                        <a href="{% url 'router_edit' router.pk %}" class="btn btn-secondary" style="padding: 0.4rem 0.85rem; font-size: 0.8rem;">Edit</a>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" style="padding: 2.5rem; text-align: center; color: var(--text-muted);">
+                        No routers yet.
+                        <a href="{% url 'router_create' %}" style="color: var(--primary); font-weight: 600;">Add the first router</a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

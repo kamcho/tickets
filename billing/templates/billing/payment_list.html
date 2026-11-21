@@ -1,0 +1,122 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}M-Pesa Payments — Metrolinks{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'core/css/light-dashboard.css' %}?v=14">
+{% endblock %}
+
+{% block content %}
+<div class="ld-shell">
+    <div class="ld-topbar">
+        <div class="ld-filters">
+            <a href="{% url 'finance_dashboard' %}" class="ld-chip">← Finance</a>
+            <span class="ld-chip active">Payments</span>
+        </div>
+        <div class="ld-modes">
+            <a href="{% url 'billing_pull_transaction' %}">Pull</a>
+            <a href="{% url 'billing_manual_payment' %}">Manual</a>
+            <a href="{% url 'billing_stk_push' %}" class="active">STK Push</a>
+        </div>
+    </div>
+
+    <div class="ld-page-head" style="display:flex;justify-content:space-between;align-items:flex-end;gap:1rem;flex-wrap:wrap;">
+        <div>
+            <h1>M-Pesa payments</h1>
+            <span class="ld-page-meta">STK, pull, and manual payment history</span>
+        </div>
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap;">
+            <a href="{% url 'billing_pull_transaction' %}" class="ld-btn">Pull transaction</a>
+            <a href="{% url 'billing_manual_payment' %}" class="ld-btn">Manual record</a>
+            <a href="{% url 'billing_stk_push' %}" class="ld-btn primary">Send STK Push</a>
+        </div>
+    </div>
+
+    {% if not mpesa_ready %}
+    <div class="ld-alert danger">
+        <strong>M-Pesa not configured.</strong>
+        Add MPESA_CONSUMER_KEY, MPESA_CONSUMER_SECRET, MPESA_SHORTCODE, MPESA_PASSKEY, and MPESA_CALLBACK_URL to .env.
+    </div>
+    {% endif %}
+
+    <div class="ld-panel" style="margin-bottom:1.25rem;">
+        <form method="get" class="ld-filter-bar">
+            <div class="form-group" style="flex:1;min-width:180px;">
+                <label class="form-label" for="q">Search</label>
+                <input type="text" name="q" id="q" class="form-input" value="{{ q }}"
+                       placeholder="Phone, receipt, PAY-…, checkout id">
+            </div>
+            <div class="form-group" style="width:160px;">
+                <label class="form-label" for="status">Status</label>
+                <select name="status" id="status" class="form-input">
+                    <option value="">All</option>
+                    {% for value, label in status_choices %}
+                    <option value="{{ value }}" {% if status == value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <button type="submit" class="btn btn-secondary">Filter</button>
+        </form>
+    </div>
+
+    <div class="ld-table-wrap">
+        <div class="ld-table-head">
+            <h3>All payments</h3>
+        </div>
+        <div class="table-scroll">
+            <table class="ld-table">
+                <thead>
+                    <tr>
+                        <th>ID</th>
+                        <th>Source</th>
+                        <th>Phone</th>
+                        <th>Amount</th>
+                        <th>Status</th>
+                        <th>Receipt</th>
+                        <th>Customer</th>
+                        <th>Created</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for p in payments %}
+                    <tr>
+                        <td><a href="{% url 'billing_payment_detail' p.payment_id %}" style="color:#2563eb;font-weight:700;text-decoration:none;">{{ p.payment_id }}</a></td>
+                        <td style="font-size:0.82rem;color:#6b7280;">{{ p.get_source_display }}</td>
+                        <td><code>{{ p.phone }}</code></td>
+                        <td style="font-weight:700;">KES {{ p.amount }}</td>
+                        <td>
+                            {% if p.status == 'success' %}<span class="ld-pill ok">{{ p.get_status_display }}</span>
+                            {% elif p.status == 'pending' %}<span class="ld-pill warn">{{ p.get_status_display }}</span>
+                            {% elif p.status == 'cancelled' %}<span class="ld-pill mute">{{ p.get_status_display }}</span>
+                            {% else %}<span class="ld-pill bad">{{ p.get_status_display }}</span>{% endif %}
+                        </td>
+                        <td>{{ p.mpesa_receipt_number|default:"—" }}</td>
+                        <td>
+                            {% if p.customer %}
+                                <a href="{% url 'customer_detail' p.customer.pk %}" style="color:#2563eb;font-weight:600;text-decoration:none;">{{ p.customer.display_name }}</a>
+                            {% else %}—{% endif %}
+                        </td>
+                        <td style="font-size:0.82rem;color:#6b7280;">{{ p.created_at }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="8" class="ld-empty">No payments yet. Send an STK Push or record a pull/manual payment.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {% if page_obj.has_other_pages %}
+    <div class="ld-pager">
+        {% if page_obj.has_previous %}
+            <a class="ld-btn" href="?page={{ page_obj.previous_page_number }}&q={{ q }}&status={{ status }}">Prev</a>
+        {% endif %}
+        <span>Page {{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+            <a class="ld-btn" href="?page={{ page_obj.next_page_number }}&q={{ q }}&status={{ status }}">Next</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

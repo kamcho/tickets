@@ -1,0 +1,661 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}Admin Dashboard — Metrolinks{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'core/css/light-dashboard.css' %}?v=12">
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="ld-shell">
+    <div class="ld-topbar">
+        <div class="ld-filters">
+            <span class="ld-filter-label">Range</span>
+            <a class="ld-chip {% if days == 7 %}active{% endif %}" href="?days=7">Last 7 days{% if days == 7 %} <span class="x">×</span>{% endif %}</a>
+            <a class="ld-chip {% if days == 30 %}active{% endif %}" href="?days=30">Last 30 days{% if days == 30 %} <span class="x">×</span>{% endif %}</a>
+            <a class="ld-chip {% if days == 90 %}active{% endif %}" href="?days=90">Last 90 days{% if days == 90 %} <span class="x">×</span>{% endif %}</a>
+        </div>
+        <div class="ld-modes">
+            <a href="{% url 'admin_dashboard' %}?days={{ days }}" class="active">Ops</a>
+            <a href="{% url 'finance_dashboard' %}?days={{ days }}">Finance</a>
+            <a href="{% url 'ticket_list' %}">Tickets</a>
+        </div>
+    </div>
+
+    <div class="ld-page-head">
+        <h1>Operations</h1>
+        <span class="ld-page-meta">Last {{ days }} days · {{ tickets.active }} active · {{ tickets.los_open }} LOS</span>
+    </div>
+
+    <div class="ld-kpi-row four">
+        <div class="ld-stat tone-orange">
+            <div class="ld-stat-top">
+                <div class="ld-stat-icon"><i data-feather="users"></i></div>
+                <div class="ld-stat-value">{{ users.customers }}</div>
+            </div>
+            <div class="ld-stat-label">Total customers</div>
+            <div class="ld-stat-foot {{ users.customers_trend.dir }}">
+                {% if users.customers_trend.dir == 'up' %}
+                <span class="mark">↑</span>
+                {{ users.customers_trend.pct }}% more than prior period
+                {% elif users.customers_trend.dir == 'down' %}
+                <span class="mark">↓</span>
+                {{ users.customers_trend.pct }}% less than prior period
+                {% else %}
+                <span class="mark">✓</span>
+                Without changes
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="ld-stat tone-pink">
+            <div class="ld-stat-top">
+                <div class="ld-stat-icon"><i data-feather="life-buoy"></i></div>
+                <div class="ld-stat-value">{{ tickets.created_period }}</div>
+            </div>
+            <div class="ld-stat-label">Tickets created</div>
+            <div class="ld-stat-foot {{ tickets.created_trend.dir }}">
+                {% if tickets.created_trend.dir == 'up' %}
+                <span class="mark">↑</span>
+                {{ tickets.created_trend.pct }}% more than prior period
+                {% elif tickets.created_trend.dir == 'down' %}
+                <span class="mark">↓</span>
+                {{ tickets.created_trend.pct }}% less than prior period
+                {% else %}
+                <span class="mark">✓</span>
+                Without changes
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="ld-stat tone-purple">
+            <div class="ld-stat-top">
+                <div class="ld-stat-icon"><i data-feather="briefcase"></i></div>
+                <div class="ld-stat-value">{{ users.staff_total }}</div>
+            </div>
+            <div class="ld-stat-label">Total staff</div>
+            <div class="ld-stat-foot flat">
+                <span class="mark">✓</span>
+                {{ users.agents }} agents · {{ users.receptionists }} reception
+            </div>
+        </div>
+
+        <div class="ld-stat tone-blue">
+            <div class="ld-stat-top">
+                <div class="ld-stat-icon"><i data-feather="credit-card"></i></div>
+                <div class="ld-stat-value sm">KES {{ mpesa.amount_period }}</div>
+            </div>
+            <div class="ld-stat-label">M-Pesa collections ({{ days }}d)</div>
+            <div class="ld-stat-foot {% if mpesa.success_period %}up{% else %}flat{% endif %}">
+                {% if mpesa.success_period %}
+                <span class="mark">↑</span>
+                {{ mpesa.success_period }} successful payments
+                {% else %}
+                <span class="mark">✓</span>
+                Without changes
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <div class="ld-analytics">
+        <div class="ld-panel">
+            <div class="ld-panel-head">
+                <h3>Router health</h3>
+                <a href="{% url 'router_list' %}" class="ld-btn">Manage</a>
+                <a href="{% url 'router_create' %}" class="ld-btn">Add</a>
+            </div>
+            <div class="ld-gauge-wrap" style="height:200px;">
+                <canvas id="chartRouters"></canvas>
+            </div>
+            <div class="ld-legend">
+                <span class="l-online">Online {{ router_stats.online }}</span>
+                <span class="l-unreach">Unreachable {{ router_stats.unreachable }}</span>
+                <span class="l-los">LOS {{ router_stats.los }}</span>
+                <span class="l-unk">Unknown {{ router_stats.unknown }}</span>
+            </div>
+        </div>
+        <div class="ld-panel">
+            <div class="ld-panel-head">
+                <h3>Tickets over time</h3>
+                <span class="ld-freq">Last {{ days }} days</span>
+            </div>
+            <div class="ld-chart-wrap">
+                <canvas id="chartTickets"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="ld-grid-cats">
+        <div class="ld-panel">
+            <div class="ld-panel-head">
+                <h3>Top categories</h3>
+            </div>
+            {% if category_breakdown %}
+            <div class="ld-arc-layout">
+                <div class="ld-arc-chart">
+                    <canvas id="chartCategories"></canvas>
+                    <div class="ld-arc-center">
+                        <div class="score">{{ category_open_total }}</div>
+                        <div class="sub">Open tickets</div>
+                    </div>
+                </div>
+                <ul class="ld-arc-legend" id="category-legend">
+                    {% for c in category_breakdown %}
+                    <li class="ld-arc-legend-item {% if not c.open_count %}is-zero{% endif %}" data-i="{{ forloop.counter0 }}">
+                        <span class="dot"></span>
+                        <span class="name">{{ c.name }}</span>
+                        <span class="trail"></span>
+                        <span class="val">{{ c.open_count }}</span>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% else %}
+            <div class="ld-empty">No categories yet.</div>
+            {% endif %}
+        </div>
+        <div class="ld-panel ld-status-card">
+            <div class="ld-status-head">
+                <div class="ld-status-title-row">
+                    <div class="ld-status-icon" aria-hidden="true">
+                        <i data-feather="refresh-cw"></i>
+                    </div>
+                    <div class="ld-status-titles">
+                        <h3>Ticket status</h3>
+                        <p>Monitor how tickets move through the pipeline</p>
+                    </div>
+                </div>
+                <a href="{% url 'ticket_list' %}" class="ld-status-ext" aria-label="Open tickets">
+                    <i data-feather="arrow-up-right"></i>
+                </a>
+            </div>
+
+            <div class="ld-status-tabs" role="tablist" aria-label="Status period">
+                <button type="button" class="ld-status-tab {% if status_period == 'week' %}active{% endif %}" data-period="week" role="tab">Week</button>
+                <button type="button" class="ld-status-tab {% if status_period == 'month' %}active{% endif %}" data-period="month" role="tab">Month</button>
+                <button type="button" class="ld-status-tab {% if status_period == 'year' %}active{% endif %}" data-period="year" role="tab">Year</button>
+            </div>
+
+            <div class="ld-status-body">
+                <div class="ld-status-meta">
+                    <div class="ld-status-total-label">Total tickets</div>
+                    <div class="ld-status-total-value" id="statusTotalValue">0</div>
+                    <ul class="ld-status-legend" id="statusLegend"></ul>
+                </div>
+                <div class="ld-status-chart">
+                    <canvas id="chartStatus"></canvas>
+                    <div class="ld-status-center">
+                        <div class="pct" id="statusDonePct">0%</div>
+                        <div class="lbl">Total</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="ld-panel ld-trend-panel">
+        <div class="ld-panel-head">
+            <h3>Agent workload</h3>
+            <button type="button" class="ld-kebab" aria-label="More options">
+                <span></span><span></span><span></span>
+            </button>
+        </div>
+        {% if agent_workload %}
+        <div class="ld-trend-wrap">
+            <canvas id="chartAgentWorkload"></canvas>
+        </div>
+        {% else %}
+        <div class="ld-empty">No field agents.</div>
+        {% endif %}
+    </div>
+
+    <div class="ld-table-wrap">
+        <div class="ld-table-head">
+            <h3>Unreachable &amp; LOS routers</h3>
+            <span class="ld-pill bad">{{ router_stats.unreachable|add:router_stats.los }} issues</span>
+        </div>
+        <div class="table-scroll">
+            <table class="ld-table">
+                <thead>
+                    <tr><th>Name</th><th>IP</th><th>Location</th><th>Status</th><th>Customers</th><th>Last seen</th></tr>
+                </thead>
+                <tbody>
+                    {% for r in problem_routers %}
+                    <tr>
+                        <td style="font-weight:700;">{{ r.name }}</td>
+                        <td><code>{{ r.ip_address|default:"—" }}</code></td>
+                        <td>{{ r.location|default:"—" }}</td>
+                        <td>
+                            {% if r.status == 'unreachable' %}
+                                <span class="ld-pill bad">Unreachable</span>
+                            {% else %}
+                                <span class="ld-pill warn">LOS</span>
+                            {% endif %}
+                        </td>
+                        <td>{{ r.customers_served }}</td>
+                        <td style="color:var(--ld-muted);font-size:0.8rem;">{{ r.last_seen_at|default:"—" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="ld-empty">No unreachable or LOS routers. <a href="{% url 'router_create' %}">Add a router</a>.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+{{ chart_json|json_script:"dash-chart-data" }}
+<script>
+(function () {
+    let data = JSON.parse(document.getElementById('dash-chart-data').textContent);
+    if (typeof data === 'string') {
+        try { data = JSON.parse(data); } catch (e) {}
+    }
+    const isDark = document.documentElement.getAttribute('data-theme') === 'dark';
+    const gridColor = isDark ? 'rgba(255,255,255,0.06)' : '#f3f4f6';
+    const tickColor = isDark ? '#64748b' : '#9ca3af';
+    const segmentGap = isDark ? '#121a2b' : '#ffffff';
+    Chart.defaults.color = tickColor;
+    Chart.defaults.borderColor = gridColor;
+    Chart.defaults.font.family = "'Plus Jakarta Sans', sans-serif";
+
+    new Chart(document.getElementById('chartTickets'), {
+        type: 'bar',
+        data: {
+            labels: data.labels,
+            datasets: [{
+                label: 'Tickets',
+                data: data.tickets,
+                backgroundColor: isDark ? '#60a5fa' : '#93c5fd',
+                borderRadius: 6,
+                borderSkipped: false,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: { legend: { display: false } },
+            scales: {
+                x: {
+                    grid: { display: false, drawBorder: false },
+                    border: { display: false },
+                    ticks: { maxTicksLimit: 8, color: tickColor },
+                },
+                y: {
+                    beginAtZero: true,
+                    border: { display: false },
+                    ticks: { precision: 0, color: tickColor },
+                    grid: { color: gridColor, drawBorder: false },
+                }
+            }
+        }
+    });
+
+    new Chart(document.getElementById('chartRouters'), {
+        type: 'doughnut',
+        data: {
+            labels: ['Online', 'Unreachable', 'LOS', 'Unknown'],
+            datasets: [{
+                data: data.router,
+                backgroundColor: ['#16a34a', '#ef4444', '#f59e0b', '#9ca3af'],
+                borderWidth: 0,
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            cutout: '68%',
+            plugins: { legend: { display: false } }
+        }
+    });
+
+    (function initStatusRadial() {
+        const periods = data.ticketStatusPeriods || {};
+        const canvas = document.getElementById('chartStatus');
+        if (!canvas) return;
+
+        const trackColor = isDark ? 'rgba(255,255,255,0.08)' : '#EEF2F7';
+        const legendEl = document.getElementById('statusLegend');
+        const totalEl = document.getElementById('statusTotalValue');
+        const pctEl = document.getElementById('statusDonePct');
+        let statusChart = null;
+        let currentPeriod = data.statusPeriod || 'month';
+
+        function ringColor(item, index) {
+            if (index === 1 && isDark) return '#E2E8F0';
+            return item.color;
+        }
+
+        function buildDatasets(snapshot) {
+            const items = (snapshot.items || []).slice();
+            const total = Math.max(1, Number(snapshot.total) || 0);
+            // Outer → inner
+            return items.map(function (item, index) {
+                const raw = Number(item.count) || 0;
+                const pct = Math.max(0, Math.min(100, Math.round((raw / total) * 100)));
+                return {
+                    label: item.label,
+                    data: [pct, 100 - pct],
+                    backgroundColor: [ringColor(item, index), trackColor],
+                    borderWidth: 3,
+                    borderColor: isDark ? '#121a2b' : '#ffffff',
+                    hoverBorderColor: isDark ? '#121a2b' : '#ffffff',
+                    borderRadius: 999,
+                    weight: 1,
+                };
+            });
+        }
+
+        function renderLegend(snapshot) {
+            if (!legendEl) return;
+            legendEl.innerHTML = (snapshot.items || []).map(function (item, index) {
+                return (
+                    '<li>' +
+                    '<span class="swatch" style="background:' + ringColor(item, index) + '"></span>' +
+                    '<span class="name">' + item.label + '</span>' +
+                    '</li>'
+                );
+            }).join('');
+        }
+
+        function renderPeriod(period) {
+            const snapshot = periods[period] || { total: 0, donePct: 0, items: [] };
+            currentPeriod = period;
+            if (totalEl) totalEl.textContent = String(snapshot.total || 0);
+            if (pctEl) pctEl.textContent = String(snapshot.donePct || 0) + '%';
+            renderLegend(snapshot);
+
+            const datasets = buildDatasets(snapshot);
+            if (statusChart) {
+                statusChart.data.datasets = datasets;
+                statusChart.update();
+                return;
+            }
+
+            statusChart = new Chart(canvas, {
+                type: 'doughnut',
+                data: { datasets: datasets },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    rotation: -55,
+                    cutout: '58%',
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: function (ctx) {
+                                    if (ctx.dataIndex !== 0) return '';
+                                    const snap = periods[currentPeriod] || {};
+                                    const item = (snap.items || [])[ctx.datasetIndex];
+                                    if (!item) return '';
+                                    return item.label + ': ' + item.count;
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        document.querySelectorAll('.ld-status-tab').forEach(function (btn) {
+            btn.addEventListener('click', function () {
+                document.querySelectorAll('.ld-status-tab').forEach(function (b) {
+                    b.classList.toggle('active', b === btn);
+                });
+                renderPeriod(btn.getAttribute('data-period'));
+            });
+        });
+
+        renderPeriod(currentPeriod);
+    })();
+
+    const cat = data.categories || { labels: [], values: [], total: 0 };
+    const catColors = ['#3b82f6', '#22c55e', '#f59e0b', '#a855f7', '#06b6d4', '#f43f5e'];
+    const catCanvas = document.getElementById('chartCategories');
+    if (catCanvas) {
+        const labels = cat.labels || [];
+        const values = (cat.values || []).map(function (v) { return Number(v) || 0; });
+        const hasData = labels.length > 0;
+        const chartValues = hasData
+            ? (values.every(function (v) { return v === 0; })
+                ? labels.map(function () { return 1; })
+                : values.map(function (v) { return v > 0 ? v : 0.0001; }))
+            : [1];
+        const mutedSeg = isDark ? 'rgba(255,255,255,0.08)' : '#e5e7eb';
+        const chartColors = hasData
+            ? (values.every(function (v) { return v === 0; })
+                ? labels.map(function () { return mutedSeg; })
+                : labels.map(function (_, i) { return values[i] ? catColors[i % catColors.length] : mutedSeg; }))
+            : [mutedSeg];
+
+        new Chart(catCanvas, {
+            type: 'doughnut',
+            data: {
+                labels: hasData ? labels : ['None'],
+                datasets: [{
+                    data: chartValues,
+                    backgroundColor: chartColors,
+                    borderWidth: 4,
+                    borderColor: segmentGap,
+                    hoverBorderColor: segmentGap,
+                    borderRadius: 10,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                rotation: -135,
+                circumference: 270,
+                cutout: '72%',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        callbacks: {
+                            label: function (ctx) {
+                                if (!hasData) return 'No data';
+                                return ctx.label + ': ' + (values[ctx.dataIndex] || 0) + ' open';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+
+        document.querySelectorAll('#category-legend .ld-arc-legend-item').forEach(function (el) {
+            const i = Number(el.getAttribute('data-i'));
+            const dot = el.querySelector('.dot');
+            if (dot) {
+                dot.style.background = values[i] ? catColors[i % catColors.length] : (isDark ? 'rgba(255,255,255,0.2)' : '#d1d5db');
+            }
+        });
+    }
+
+    const aw = data.agentWorkload || { labels: [], series: [] };
+    const awCanvas = document.getElementById('chartAgentWorkload');
+    if (awCanvas && aw.series && aw.series.length) {
+        const focusIndex = Math.max(0, Math.min((aw.labels || []).length - 1, Number(aw.focusIndex) || 0));
+        const focusValue = Number(aw.focusValue) || 0;
+        const focusDelta = Number(aw.focusDeltaPct) || 0;
+        const deltaSign = focusDelta > 0 ? '+' : '';
+        const deltaColor = focusDelta > 0 ? '#4ade80' : (focusDelta < 0 ? '#f87171' : '#9ca3af');
+
+        function roundRect(ctx, x, y, w, h, r) {
+            const radius = Math.min(r, h / 2, w / 2);
+            ctx.beginPath();
+            ctx.moveTo(x + radius, y);
+            ctx.arcTo(x + w, y, x + w, y + h, radius);
+            ctx.arcTo(x + w, y + h, x, y + h, radius);
+            ctx.arcTo(x, y + h, x, y, radius);
+            ctx.arcTo(x, y, x + w, y, radius);
+            ctx.closePath();
+        }
+
+        const agentTrendPlugin = {
+            id: 'agentTrendDecor',
+            afterDatasetsDraw: function (chart) {
+                const { ctx, chartArea, scales } = chart;
+                if (!chartArea) return;
+                const x = scales.x.getPixelForValue(focusIndex);
+                const meta0 = chart.getDatasetMeta(0);
+                if (!meta0 || !meta0.data[focusIndex]) return;
+                const point = meta0.data[focusIndex];
+                const topColor = chart.data.datasets[0].borderColor;
+
+                ctx.save();
+
+                // Vertical dashed scrubber
+                ctx.strokeStyle = '#111827';
+                ctx.lineWidth = 1.5;
+                ctx.setLineDash([5, 5]);
+                ctx.beginPath();
+                ctx.moveTo(x, chartArea.top + 6);
+                ctx.lineTo(x, chartArea.bottom - 6);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                // Triangle caps
+                ctx.fillStyle = '#111827';
+                ctx.beginPath();
+                ctx.moveTo(x, chartArea.top);
+                ctx.lineTo(x - 5, chartArea.top + 8);
+                ctx.lineTo(x + 5, chartArea.top + 8);
+                ctx.closePath();
+                ctx.fill();
+                ctx.beginPath();
+                ctx.moveTo(x, chartArea.bottom);
+                ctx.lineTo(x - 5, chartArea.bottom - 8);
+                ctx.lineTo(x + 5, chartArea.bottom - 8);
+                ctx.closePath();
+                ctx.fill();
+
+                // Active point marker
+                ctx.beginPath();
+                ctx.arc(point.x, point.y, 6, 0, Math.PI * 2);
+                ctx.fillStyle = '#fff';
+                ctx.fill();
+                ctx.lineWidth = 2.5;
+                ctx.strokeStyle = topColor;
+                ctx.stroke();
+
+                // Value badge
+                const valueText = String(focusValue);
+                const pctText = deltaSign + focusDelta + '%';
+                ctx.font = '700 12px "Plus Jakarta Sans", system-ui, sans-serif';
+                const vw = ctx.measureText(valueText).width;
+                ctx.font = '700 11px "Plus Jakarta Sans", system-ui, sans-serif';
+                const pw = ctx.measureText(pctText).width;
+                const badgeW = vw + pw + 28;
+                const badgeH = 26;
+                let badgeX = point.x - badgeW - 14;
+                let badgeY = point.y - badgeH / 2;
+                if (badgeX < chartArea.left + 4) badgeX = point.x + 14;
+                if (badgeY < chartArea.top + 4) badgeY = chartArea.top + 4;
+                if (badgeY + badgeH > chartArea.bottom - 4) badgeY = chartArea.bottom - badgeH - 4;
+
+                ctx.fillStyle = '#111827';
+                roundRect(ctx, badgeX, badgeY, badgeW, badgeH, 13);
+                ctx.fill();
+
+                ctx.fillStyle = '#fff';
+                ctx.font = '700 12px "Plus Jakarta Sans", system-ui, sans-serif';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(valueText, badgeX + 12, badgeY + badgeH / 2);
+                ctx.fillStyle = deltaColor;
+                ctx.font = '700 11px "Plus Jakarta Sans", system-ui, sans-serif';
+                ctx.fillText(pctText, badgeX + 18 + vw, badgeY + badgeH / 2);
+
+                // End-of-line name pills
+                chart.data.datasets.forEach(function (ds, di) {
+                    const meta = chart.getDatasetMeta(di);
+                    if (!meta || !meta.data.length) return;
+                    const last = meta.data[meta.data.length - 1];
+                    const label = ds.label || '';
+                    ctx.font = '700 11px "Plus Jakarta Sans", system-ui, sans-serif';
+                    const tw = ctx.measureText(label).width;
+                    const pw2 = tw + 20;
+                    const ph = 24;
+                    let lx = last.x + 10;
+                    let ly = last.y - ph / 2;
+                    if (lx + pw2 > chart.width - 4) lx = chart.width - pw2 - 4;
+                    if (ly < chartArea.top) ly = chartArea.top;
+                    if (ly + ph > chartArea.bottom) ly = chartArea.bottom - ph;
+
+                    ctx.fillStyle = ds.borderColor;
+                    roundRect(ctx, lx, ly, pw2, ph, 12);
+                    ctx.fill();
+                    ctx.fillStyle = '#fff';
+                    ctx.textBaseline = 'middle';
+                    ctx.fillText(label, lx + 10, ly + ph / 2);
+                });
+
+                ctx.restore();
+            }
+        };
+
+        const yMax = Math.max(
+            10,
+            ...aw.series.flatMap(function (s) { return s.data || []; })
+        );
+        const niceMax = Math.ceil(yMax / 20) * 20 || 100;
+
+        new Chart(awCanvas, {
+            type: 'line',
+            data: {
+                labels: aw.labels,
+                datasets: aw.series.map(function (s) {
+                    return {
+                        label: s.name,
+                        data: s.data,
+                        borderColor: s.color,
+                        backgroundColor: 'transparent',
+                        borderWidth: 2.5,
+                        tension: 0.45,
+                        pointRadius: 0,
+                        pointHoverRadius: 0,
+                        clip: false,
+                    };
+                })
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                layout: { padding: { right: 110, top: 8, bottom: 4 } },
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { display: false },
+                    tooltip: { enabled: false },
+                },
+                scales: {
+                    x: {
+                        display: true,
+                        grid: { display: false, drawBorder: false },
+                        ticks: { display: false },
+                        border: { display: false },
+                    },
+                    y: {
+                        beginAtZero: true,
+                        max: niceMax,
+                        ticks: {
+                            stepSize: Math.max(1, Math.round(niceMax / 5)),
+                            color: tickColor,
+                            font: { size: 11, weight: '600' },
+                            padding: 8,
+                        },
+                        grid: {
+                            color: gridColor,
+                            drawBorder: false,
+                        },
+                        border: { display: false },
+                    }
+                }
+            },
+            plugins: [agentTrendPlugin]
+        });
+    }
+})();
+</script>
+{% endblock %}

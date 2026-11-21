@@ -1,0 +1,285 @@
+/* SMS activity modal — ticket create / assign pipeline */
+
+body.sms-activity-open {
+    overflow: hidden;
+}
+
+.sms-activity-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 12000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    pointer-events: none;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.sms-activity-modal.is-open {
+    pointer-events: auto;
+    opacity: 1;
+    visibility: visible;
+}
+
+.sms-activity-modal__backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.55);
+}
+
+.sms-activity-modal__panel {
+    position: relative;
+    width: min(560px, 100%);
+    max-height: min(90vh, 720px);
+    display: flex;
+    flex-direction: column;
+    background: var(--surface, #fff);
+    border: 1px solid var(--border-color, #e5e7eb);
+    border-radius: 12px;
+    box-shadow: 0 24px 48px rgba(0, 0, 0, 0.18);
+    overflow: hidden;
+}
+
+.sms-activity-modal__header {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    padding: 1.25rem 1.25rem 0.75rem;
+    border-bottom: 1px solid var(--border-color, #e5e7eb);
+}
+
+.sms-activity-modal__title {
+    margin: 0;
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: var(--text-primary, #111);
+}
+
+.sms-activity-modal__subtitle {
+    margin: 0.25rem 0 0;
+    font-size: 0.8rem;
+    color: var(--text-muted, #6b7280);
+}
+
+.sms-activity-modal__close {
+    margin-left: auto;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: none;
+    border-radius: 8px;
+    background: transparent;
+    color: var(--text-muted);
+    cursor: pointer;
+}
+
+.sms-activity-modal__close:hover {
+    background: var(--surface-hover, rgba(0, 0, 0, 0.05));
+}
+
+.sms-activity-badge {
+    flex-shrink: 0;
+    align-self: center;
+    padding: 0.25rem 0.65rem;
+    border-radius: 999px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+}
+
+.sms-activity-badge[data-overall="success"] {
+    background: rgba(34, 197, 94, 0.15);
+    color: #15803d;
+}
+
+.sms-activity-badge[data-overall="partial"] {
+    background: rgba(245, 158, 11, 0.15);
+    color: #b45309;
+}
+
+.sms-activity-badge[data-overall="failed"] {
+    background: rgba(239, 68, 68, 0.15);
+    color: #b91c1c;
+}
+
+.sms-activity-badge[data-overall="skipped"] {
+    background: rgba(107, 114, 128, 0.15);
+    color: #4b5563;
+}
+
+.sms-activity-modal__body {
+    padding: 1rem 1.25rem;
+    overflow-y: auto;
+    flex: 1;
+}
+
+.sms-activity-modal__intro {
+    margin: 0 0 1rem;
+    font-size: 0.875rem;
+    color: var(--text-muted);
+    line-height: 1.5;
+}
+
+.sms-activity-steps {
+    list-style: none;
+    margin: 0 0 1.25rem;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+}
+
+.sms-activity-step {
+    display: flex;
+    gap: 0.75rem;
+    padding: 0.75rem;
+    border-radius: 8px;
+    border: 1px solid var(--border-color, #e5e7eb);
+    background: var(--surface-elevated, #f9fafb);
+}
+
+.sms-activity-step__icon {
+    flex-shrink: 0;
+    width: 22px;
+    height: 22px;
+    margin-top: 2px;
+}
+
+.sms-activity-step--done .sms-activity-step__icon {
+    color: #16a34a;
+}
+
+.sms-activity-step--error .sms-activity-step__icon {
+    color: #dc2626;
+}
+
+.sms-activity-step--skipped .sms-activity-step__icon {
+    color: #9ca3af;
+}
+
+.sms-activity-step__label {
+    font-weight: 600;
+    font-size: 0.875rem;
+    color: var(--text-primary);
+}
+
+.sms-activity-step__detail {
+    margin-top: 0.25rem;
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    line-height: 1.45;
+    word-break: break-word;
+}
+
+.sms-activity-step__error {
+    margin-top: 0.35rem;
+    padding: 0.5rem 0.65rem;
+    border-radius: 6px;
+    font-size: 0.8rem;
+    line-height: 1.45;
+    color: #991b1b;
+    background: rgba(239, 68, 68, 0.08);
+    border: 1px solid rgba(239, 68, 68, 0.2);
+    word-break: break-word;
+    white-space: pre-wrap;
+}
+
+.sms-activity-copy-block {
+    border-top: 1px solid var(--border-color);
+    padding-top: 1rem;
+}
+
+.sms-activity-copy-block__head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.sms-activity-copy-text {
+    width: 100%;
+    box-sizing: border-box;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 0.75rem;
+    line-height: 1.45;
+    padding: 0.65rem;
+    border-radius: 8px;
+    border: 1px solid var(--border-color);
+    background: var(--surface, #fff);
+    color: var(--text-primary);
+    resize: vertical;
+    min-height: 120px;
+}
+
+.sms-activity-copy-feedback {
+    margin: 0.35rem 0 0;
+    font-size: 0.75rem;
+    color: #16a34a;
+}
+
+.sms-activity-modal__footer {
+    padding: 0.75rem 1.25rem 1.25rem;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: flex-end;
+}
+
+.btn-sm {
+    padding: 0.35rem 0.65rem;
+    font-size: 0.8rem;
+}
+
+.sms-activity-reopen {
+    position: fixed;
+    bottom: 5.5rem;
+    right: 1.25rem;
+    z-index: 1100;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.55rem 0.85rem;
+    border: 1px solid var(--border-color);
+    border-radius: 999px;
+    background: var(--surface, #fff);
+    color: var(--text-primary);
+    font-size: 0.8rem;
+    font-weight: 600;
+    box-shadow: 0 4px 14px rgba(0, 0, 0, 0.12);
+    cursor: pointer;
+}
+
+.sms-activity-reopen:hover {
+    background: var(--surface-hover, #f3f4f6);
+}
+
+.sms-activity-reopen i {
+    width: 16px;
+    height: 16px;
+}
+
+@media (max-width: 480px) {
+    .sms-activity-modal__header {
+        flex-wrap: wrap;
+    }
+
+    .sms-activity-badge {
+        order: 3;
+        margin-left: 0;
+    }
+
+    .sms-activity-reopen {
+        bottom: 4.5rem;
+        right: 0.75rem;
+    }
+}

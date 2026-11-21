@@ -127,3 +127,39 @@ def company_contact(request):
     }
 
 
+def app_chrome(request):
+    """Whether to show the global app sidebar (staff UI chrome)."""
+    user = getattr(request, 'user', None)
+    if not user or not user.is_authenticated:
+        return {'show_app_sidebar': False}
+
+    path = getattr(request, 'path', '') or ''
+    excluded_prefixes = (
+        '/login',
+        '/portal/login',
+        '/portal/logout',
+        '/assistant',
+        '/signup',
+        '/register',
+    )
+    if any(path.startswith(prefix) for prefix in excluded_prefixes):
+        return {'show_app_sidebar': False}
+
+    return {'show_app_sidebar': True}
+
+
+def sms_activity_report(request):
+    """One-shot SMS pipeline report for the activity modal (staff UI)."""
+    if not hasattr(request, 'session'):
+        return {'sms_activity_report': None}
+    user = getattr(request, 'user', None)
+    if not user or not user.is_authenticated:
+        return {'sms_activity_report': None}
+    if getattr(user, 'role', None) not in ('Admin', 'Receptionist', 'Field Agent'):
+        return {'sms_activity_report': None}
+    report = request.session.pop('sms_activity_report', None)
+    if report:
+        request.session.modified = True
+    return {'sms_activity_report': report}
+
+

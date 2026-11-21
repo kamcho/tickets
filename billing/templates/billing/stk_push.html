@@ -1,0 +1,57 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}STK Push — Metrolinks{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'core/css/light-dashboard.css' %}?v=14">
+{% endblock %}
+
+{% block content %}
+<div class="ld-shell">
+    <div class="ld-topbar">
+        <div class="ld-filters">
+            <a href="{% url 'billing_payment_list' %}" class="ld-chip">← Payments</a>
+            <span class="ld-chip active">STK Push</span>
+        </div>
+        <div class="ld-modes">
+            <a href="{% url 'billing_pull_transaction' %}">Pull</a>
+            <a href="{% url 'billing_manual_payment' %}">Manual</a>
+            <a href="{% url 'billing_stk_push' %}" class="active">STK Push</a>
+        </div>
+    </div>
+
+    <div class="ld-page-head">
+        <h1>Send STK Push</h1>
+        <span class="ld-page-meta">Customer gets an M-Pesa PIN prompt on their phone</span>
+    </div>
+
+    {% if not mpesa_ready %}
+    <div class="ld-alert danger">
+        <strong>M-Pesa not configured.</strong>
+        Set MPESA_* variables in .env and restart the app before sending STK.
+    </div>
+    {% endif %}
+
+    <div class="ld-panel ld-form-card">
+        <form method="post">
+            {% csrf_token %}
+            {% for field in form %}
+            <div class="form-group">
+                <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {{ field }}
+                {% if field.help_text %}
+                <p style="font-size:0.8rem;color:var(--ld-soft);margin-top:0.35rem;">{{ field.help_text }}</p>
+                {% endif %}
+                {% for err in field.errors %}
+                <p style="color:var(--ld-red);font-size:0.82rem;margin-top:0.25rem;">{{ err }}</p>
+                {% endfor %}
+            </div>
+            {% endfor %}
+            <button type="submit" class="btn btn-primary" {% if not mpesa_ready %}disabled{% endif %}>
+                Send STK Push
+            </button>
+        </form>
+    </div>
+</div>
+{% endblock %}

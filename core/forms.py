@@ -1,7 +1,10 @@
 from django import forms
 from django.contrib.auth import get_user_model
 from core.form_utils import clean_kenya_mobile_phone
-from .models import Ticket, TicketComments, TicketAttachments, TicketCategory, MyUser
+from .models import (
+    Ticket, TicketComments, TicketAttachments, TicketCategory, MyUser,
+    NetworkRouter, CustomerHomeRouter,
+)
 
 User = get_user_model()
 
@@ -197,6 +200,142 @@ class CustomerForm(forms.ModelForm):
         super().__init__(*args, **kwargs)
         if self.instance and self.instance.pk:
             self.fields['contact_name'].initial = self.instance.display_name
+
+class CustomerHomeRouterForm(forms.ModelForm):
+    class Meta:
+        model = CustomerHomeRouter
+        fields = [
+            'brand', 'model', 'serial_number', 'mac_address',
+            'ssid', 'wifi_password', 'ownership', 'installed_at',
+            'notes', 'is_active',
+        ]
+        widgets = {
+            'brand': forms.TextInput(attrs={
+                'class': 'form-input',
+                'placeholder': 'TP-Link / Tenda / D-Link…',
+            }),
+            'model': forms.TextInput(attrs={
+                'class': 'form-input',
+                'placeholder': 'Archer C6 / AC10…',
+            }),
+            'serial_number': forms.TextInput(attrs={
+                'class': 'form-input',
+                'placeholder': 'Serial on device sticker',
+            }),
+            'mac_address': forms.TextInput(attrs={
+                'class': 'form-input',
+                'placeholder': 'AA:BB:CC:DD:EE:FF',
+            }),
+            'ssid': forms.TextInput(attrs={
+                'class': 'form-input',
+                'placeholder': 'Wi‑Fi name (optional)',
+            }),
+            'wifi_password': forms.TextInput(attrs={
+                'class': 'form-input',
+                'placeholder': 'Wi‑Fi password (staff only)',
+                'autocomplete': 'off',
+            }),
+            'ownership': forms.Select(attrs={'class': 'form-input'}),
+            'installed_at': forms.DateInput(attrs={
+                'class': 'form-input',
+                'type': 'date',
+            }),
+            'notes': forms.Textarea(attrs={
+                'class': 'form-input',
+                'rows': 2,
+                'placeholder': 'Where installed, spare unit, issues…',
+            }),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check'}),
+        }
+
+    def clean(self):
+        cleaned = super().clean()
+        brand = (cleaned.get('brand') or '').strip()
+        model = (cleaned.get('model') or '').strip()
+        serial = (cleaned.get('serial_number') or '').strip()
+        if not brand and not model and not serial:
+            raise forms.ValidationError(
+                'Enter at least a brand, model, or serial number for this home router.',
+            )
+        return cleaned
+
+
+class NetworkRouterForm(forms.ModelForm):
+    class Meta:
+        model = NetworkRouter
+        fields = [
+            'name', 'location', 'status', 'customers_served',
+            'is_active', 'is_default', 'notes',
+            'ip_address', 'api_host', 'api_user', 'api_password',
+            'api_ssl', 'api_verify_ssl', 'api_port',
+        ]
+        widgets = {
+            'name': forms.TextInput(attrs={
+                'class': 'form-input',
+                'placeholder': 'Tower A / HQ Core',
+            }),
+            'location': forms.TextInput(attrs={
+                'class': 'form-input',
+                'placeholder': 'Site / tower description',
+            }),
+            'status': forms.Select(attrs={'class': 'form-input'}),
+            'customers_served': forms.NumberInput(attrs={
+                'class': 'form-input',
+                'min': 0,
+            }),
+            'notes': forms.Textarea(attrs={
+                'class': 'form-input',
+                'rows': 2,
+                'placeholder': 'Optional notes for NOC / billing…',
+            }),
+            'ip_address': forms.TextInput(attrs={
+                'class': 'form-input',
+                'placeholder': 'Optional display IP (e.g. 10.0.0.1)',
+            }),
+            'api_host': forms.TextInput(attrs={
+                'class': 'form-input',
+                'placeholder': 'REST host — IP or hostname (e.g. router.vpn)',
+            }),
+            'api_user': forms.TextInput(attrs={
+                'class': 'form-input',
+                'placeholder': 'billing',
+                'autocomplete': 'off',
+            }),
+            'api_password': forms.PasswordInput(attrs={
+                'class': 'form-input',
+                'placeholder': 'RouterOS API password',
+                'autocomplete': 'new-password',
+            }, render_value=True),
+            'api_port': forms.NumberInput(attrs={
+                'class': 'form-input',
+                'placeholder': 'Blank = 443 HTTPS / 80 HTTP',
+                'min': 1,
+                'max': 65535,
+            }),
+            'is_active': forms.CheckboxInput(attrs={'class': 'form-check'}),
+            'is_default': forms.CheckboxInput(attrs={'class': 'form-check'}),
+            'api_ssl': forms.CheckboxInput(attrs={'class': 'form-check'}),
+            'api_verify_ssl': forms.CheckboxInput(attrs={'class': 'form-check'}),
+        }
+
+    def clean(self):
+        cleaned = super().clean()
+        api_host = (cleaned.get('api_host') or '').strip()
+        ip_address = cleaned.get('ip_address')
+        if not api_host and not ip_address:
+            self.add_error(
+                'api_host',
+                'Provide API host or a display IP so the app can reach this router.',
+            )
+        api_user = (cleaned.get('api_user') or '').strip()
+        api_password = (cleaned.get('api_password') or '').strip()
+        if (api_user and not api_password) or (api_password and not api_user):
+            self.add_error(
+                'api_password' if api_user else 'api_user',
+                'API username and password must both be set, or both left blank.',
+            )
+        return cleaned
+
 
 class CommentForm(forms.ModelForm):
     class Meta:

@@ -1,0 +1,65 @@
+{% extends 'core/base.html' %}
+{% load static %}
+
+{% block title %}{{ invoice.invoice_id }} — Invoice{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="{% static 'core/css/light-dashboard.css' %}?v=14">
+{% endblock %}
+
+{% block content %}
+<div class="ld-shell">
+    <div class="ld-topbar">
+        <div class="ld-filters">
+            <a href="{% url 'billing_invoice_list' %}" class="ld-chip">← Invoices</a>
+            <span class="ld-chip active">{{ invoice.invoice_id }}</span>
+        </div>
+        <div class="ld-modes">
+            {% if invoice.status != 'paid' and invoice.status != 'void' %}
+            <a href="{% url 'billing_stk_push' %}?invoice={{ invoice.invoice_id }}">Pay STK</a>
+            <a href="{% url 'billing_pull_transaction' %}?invoice={{ invoice.invoice_id }}">Pull</a>
+            <a href="{% url 'billing_manual_payment' %}?invoice={{ invoice.invoice_id }}">Manual</a>
+            {% endif %}
+        </div>
+    </div>
+
+    <div class="ld-panel">
+        <div style="display:flex;justify-content:space-between;gap:1rem;flex-wrap:wrap;align-items:flex-start;">
+            <div>
+                <h1 style="margin:0;font-size:1.5rem;font-weight:800;">{{ invoice.invoice_id }}</h1>
+                <p style="margin:0.35rem 0 0;color:var(--ld-muted);">{{ invoice.get_status_display }}</p>
+            </div>
+            {% if invoice.status != 'paid' and invoice.status != 'void' %}
+            <a href="{% url 'billing_stk_push' %}?invoice={{ invoice.invoice_id }}" class="ld-btn primary">Pay with M-Pesa STK</a>
+            {% endif %}
+        </div>
+
+        <div class="ld-kv-grid">
+            <div>
+                <div class="k">Customer</div>
+                <div class="v"><a href="{% url 'customer_detail' invoice.subscription.customer_id %}" style="color:#2563eb;text-decoration:none;">{{ invoice.subscription.customer.display_name }}</a></div>
+            </div>
+            <div>
+                <div class="k">Plan</div>
+                <div class="v">{{ invoice.subscription.plan.name }} ({{ invoice.subscription.plan.speed_mbps }} Mbps)</div>
+            </div>
+            <div>
+                <div class="k">Amount due</div>
+                <div class="v" style="font-size:1.25rem;">KES {{ invoice.amount_due }}</div>
+            </div>
+            <div>
+                <div class="k">Amount paid</div>
+                <div class="v">KES {{ invoice.amount_paid }}</div>
+            </div>
+            <div>
+                <div class="k">Period start</div>
+                <div class="v">{{ invoice.period_start|date:"Y-m-d H:i:s" }}</div>
+            </div>
+            <div>
+                <div class="k">Period end / disconnect</div>
+                <div class="v">{{ invoice.period_end|date:"Y-m-d H:i:s" }}</div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

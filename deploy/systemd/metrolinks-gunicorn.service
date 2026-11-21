@@ -1,0 +1,26 @@
+[Unit]
+Description=Metrolinks Gunicorn (Django)
+After=network.target mysql.service mariadb.service redis-server.service
+Wants=redis-server.service
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/var/www/metrolinks
+EnvironmentFile=/var/www/metrolinks/.env
+ExecStart=/var/www/metrolinks/.venv/bin/gunicorn \
+    --config /var/www/metrolinks/deploy/gunicorn.conf.py \
+    ticket.wsgi:application
+ExecReload=/bin/kill -s HUP $MAINPID
+KillMode=mixed
+TimeoutStopSec=30
+Restart=always
+RestartSec=5
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+
+[Install]
+WantedBy=multi-user.target

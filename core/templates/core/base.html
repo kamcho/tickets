@@ -6,24 +6,44 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
     <meta name="description" content="Premium Customer Support Ticket Management Portal for Metrolinks Solution Ltd. Support requests, issues tracking, and agent assignments.">
     <title>{% block title %}Metrolinks Support Center{% endblock %}</title>
-    
-    <!-- Custom Style Sheet -->
+    <script>
+        (function () {
+            try {
+                var t = localStorage.getItem('ml-theme');
+                if (t !== 'light' && t !== 'dark') t = 'light';
+                document.documentElement.setAttribute('data-theme', t);
+            } catch (e) {
+                document.documentElement.setAttribute('data-theme', 'light');
+            }
+        })();
+    </script>
+
     <link rel="stylesheet" href="{% static 'core/css/style.css' %}">
+    <link rel="stylesheet" href="{% static 'core/css/theme.css' %}?v=5">
+    <link rel="stylesheet" href="{% static 'core/css/app-sidebar.css' %}?v=2">
     <link rel="stylesheet" href="{% static 'core/css/floating-buttons.css' %}?v=3">
-    
-    <!-- Feather Icons for modern lightweight iconography -->
+
     <script src="https://unpkg.com/feather-icons"></script>
-    
+
     {% block extra_head %}{% endblock %}
 </head>
-<body>
+<body class="{% if show_app_sidebar %}has-sidebar{% endif %} {% block body_class %}{% endblock %}">
 <div class="site-layout">
+    {% if show_app_sidebar %}
+        {% include 'core/includes/app_sidebar.html' %}
+    {% endif %}
+    <div class="site-column">
 
     <!-- Top Navigation Bar -->
     <nav class="navbar" id="main-navbar">
         <div class="nav-container">
+            {% if show_app_sidebar %}
+            <button type="button" class="sidebar-open-btn" id="sidebar-open-btn" aria-label="Open sidebar" aria-controls="app-sidebar" aria-expanded="false">
+                <i data-feather="menu"></i>
+            </button>
+            {% endif %}
             <!-- Brand Logo -->
-            <a href="/" class="nav-brand" id="brand-link">
+            <a href="{% if user.is_authenticated %}{% if user.role == 'Admin' %}{% url 'admin_dashboard' %}{% else %}{% url 'ticket_list' %}{% endif %}{% else %}/{% endif %}" class="nav-brand" id="brand-link">
                 <div class="nav-brand-logo">M</div>
                 <span class="nav-brand-text">
                     <span class="nav-brand-full">METROLINKS <span class="highlight">SUPPORT</span></span>
@@ -31,14 +51,28 @@
                 </span>
             </a>
 
-            <!-- Menu Navigation Links -->
+            <!-- Menu Navigation Links (hidden when sidebar is active) -->
             <ul class="nav-menu" id="nav-menu">
                 {% if user.is_authenticated %}
                     <li class="nav-item">
-                        <a href="/" class="nav-link {% if request.path == '/' %}active{% endif %}" id="nav-home">
-                            <i data-feather="grid" style="width: 16px; height: 16px;"></i> Dashboard
+                        <a href="{% url 'ticket_list' %}" class="nav-link {% if request.path == '/tickets/' or request.path == '/tickets' %}active{% endif %}" id="nav-tickets">
+                            <i data-feather="life-buoy" style="width: 16px; height: 16px;"></i> Tickets
                         </a>
                     </li>
+                    {% if user.role == 'Admin' %}
+                    <li class="nav-item">
+                        <a href="{% url 'admin_dashboard' %}" class="nav-link {% if '/dashboard' in request.path %}active{% endif %}" id="nav-admin-dashboard">
+                            <i data-feather="bar-chart-2" style="width: 16px; height: 16px;"></i> Dashboard
+                        </a>
+                    </li>
+                    {% endif %}
+                    {% if user.role == 'Admin' or user.role == 'Receptionist' %}
+                    <li class="nav-item">
+                        <a href="{% url 'finance_dashboard' %}" class="nav-link {% if '/finance' in request.path %}active{% endif %}" id="nav-finance">
+                            <i data-feather="dollar-sign" style="width: 16px; height: 16px;"></i> Finance
+                        </a>
+                    </li>
+                    {% endif %}
                     {% if can_create_ticket %}
                     <li class="nav-item">
                         <a href="{% url 'ticket_create' %}" class="nav-link {% if 'tickets/create' in request.path %}active{% endif %}" id="nav-create-ticket">
@@ -50,6 +84,11 @@
                     <li class="nav-item">
                         <a href="/customers/" class="nav-link {% if 'customers' in request.path %}active{% endif %}" id="nav-customers">
                             <i data-feather="briefcase" style="width: 16px; height: 16px;"></i> Customers
+                        </a>
+                    </li>
+                    <li class="nav-item">
+                        <a href="{% url 'billing_payment_list' %}" class="nav-link {% if '/billing/' in request.path %}active{% endif %}" id="nav-billing">
+                            <i data-feather="credit-card" style="width: 16px; height: 16px;"></i> Payments
                         </a>
                     </li>
                     {% endif %}
@@ -71,7 +110,12 @@
             <!-- Navigation Actions & Profile -->
             <div class="nav-actions">
                 {% if user.is_authenticated %}
-                    <!-- User Avatar & Dropdown Menu -->
+                    {% if not show_app_sidebar %}
+                    <button type="button" class="theme-toggle theme-toggle--nav" id="theme-toggle-nav" aria-label="Toggle color theme" title="Toggle theme">
+                        <i data-feather="moon" class="theme-toggle-icon-dark"></i>
+                        <i data-feather="sun" class="theme-toggle-icon-light" style="display:none;"></i>
+                    </button>
+                    {% endif %}
                     <div class="user-profile-menu" id="profile-menu-toggle" onclick="toggleProfileDropdown()">
                         <div class="user-avatar" id="user-avatar-initials">
                             {{ user.email|slice:":1"|upper }}
@@ -83,14 +127,12 @@
                             <span class="user-role" id="user-display-role">{{ user.role|default:"Client" }}</span>
                         </div>
                         <i data-feather="chevron-down" style="width: 14px; height: 14px; color: var(--text-muted);"></i>
-                        
-                        <!-- Dropdown Options -->
+
                         <div class="dropdown-menu" id="profile-dropdown-list">
                             <a href="{% url 'profile' %}" class="dropdown-item" id="dropdown-profile">
                                 <i data-feather="user" style="width: 14px; height: 14px;"></i> My Profile
                             </a>
                             <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 0.25rem 0;">
-                            <!-- Django 5+ / 6.0 style POST logout is recommended for security, but we provide a logout form -->
                             <form action="/logout/" method="post" id="logout-form" style="display: none;">
                                 {% csrf_token %}
                             </form>
@@ -99,12 +141,15 @@
                             </a>
                         </div>
                     </div>
-                    
-                    <!-- Hamburger Toggle Button -->
+
                     <button type="button" class="nav-toggle" id="nav-toggle-btn" aria-label="Open navigation menu" aria-expanded="false" aria-controls="nav-menu">
                         <i data-feather="menu" class="nav-toggle-icon"></i>
                     </button>
                 {% else %}
+                    <button type="button" class="theme-toggle theme-toggle--nav" id="theme-toggle-nav" aria-label="Toggle color theme" title="Toggle theme">
+                        <i data-feather="moon" class="theme-toggle-icon-dark"></i>
+                        <i data-feather="sun" class="theme-toggle-icon-light" style="display:none;"></i>
+                    </button>
                     <div class="nav-auth-links">
                         {% if request.path != '/login/' %}
                             <a href="{% url 'login' %}" class="btn btn-primary" id="btn-login-redirect">
@@ -123,7 +168,6 @@
     </nav>
     <div class="nav-backdrop" id="nav-backdrop" aria-hidden="true"></div>
 
-    <!-- Main Content Layout Section -->
     <main class="main-wrapper" id="main-content-section">
         {% if messages %}
             <div class="messages-container" id="toast-messages-container">
@@ -147,27 +191,22 @@
         {% endblock %}
     </main>
 
-    <!-- Global Layout Footer -->
     <footer id="main-footer">
         <div class="footer-content">
-            <div class="footer-contact">
-                <span class="footer-brand">METROLINKS SOLUTION LTD</span>
-                <p class="footer-contact__line">
-                    <i data-feather="phone" style="width: 14px; height: 14px; vertical-align: -2px;"></i>
-                    Office:
-                    <a href="tel:{{ company_phone_primary_tel }}">{{ company_phone_primary }}</a>
-                    <span class="footer-contact__sep">/</span>
-                    <a href="tel:{{ company_phone_secondary_tel }}">{{ company_phone_secondary }}</a>
-                </p>
-                <p class="footer-contact__line">
-                    <i data-feather="mail" style="width: 14px; height: 14px; vertical-align: -2px;"></i>
-                    <a href="mailto:{{ company_email }}">{{ company_email }}</a>
-                </p>
+            <div class="footer-left">
+                <span class="footer-brand">Metrolinks Solution Ltd</span>
+                <span class="footer-divider" aria-hidden="true"></span>
+                <a class="footer-link" href="tel:{{ company_phone_primary_tel }}">{{ company_phone_primary }}</a>
+                <span class="footer-dot" aria-hidden="true">·</span>
+                <a class="footer-link" href="tel:{{ company_phone_secondary_tel }}">{{ company_phone_secondary }}</a>
+                <span class="footer-dot" aria-hidden="true">·</span>
+                <a class="footer-link" href="mailto:{{ company_email }}">{{ company_email }}</a>
             </div>
             <span class="footer-text" id="footer-copyright">&copy; {% now "Y" %} Metrolinks Solution Ltd. All rights reserved.</span>
         </div>
     </footer>
 
+    </div><!-- /.site-column -->
 </div><!-- /.site-layout -->
 
 {% if user.is_authenticated and 'assistant' not in request.path %}
@@ -176,20 +215,64 @@
 {% include 'core/includes/floating_buttons.html' with show_assistant_fab=False %}
 {% endif %}
 
-    <!-- Initialize Icons and Scripting -->
+{% if sms_activity_report %}
+{% include 'core/includes/sms_activity_modal.html' %}
+{% endif %}
+
     <script>
-        // Initialize feather icons
         feather.replace();
 
-        // Handle profile dropdown interaction
+        (function () {
+            var STORAGE_KEY = 'ml-theme';
+
+            function getTheme() {
+                return document.documentElement.getAttribute('data-theme') === 'dark' ? 'dark' : 'light';
+            }
+
+            function syncThemeToggleUI(theme) {
+                document.querySelectorAll('.theme-toggle, .theme-toggle--nav').forEach(function (btn) {
+                    var darkIcon = btn.querySelector('.theme-toggle-icon-dark');
+                    var lightIcon = btn.querySelector('.theme-toggle-icon-light');
+                    var label = btn.querySelector('.theme-toggle-label');
+                    if (theme === 'dark') {
+                        if (darkIcon) darkIcon.style.display = 'none';
+                        if (lightIcon) lightIcon.style.display = '';
+                        if (label) label.textContent = 'Light mode';
+                    } else {
+                        if (darkIcon) darkIcon.style.display = '';
+                        if (lightIcon) lightIcon.style.display = 'none';
+                        if (label) label.textContent = 'Dark mode';
+                    }
+                });
+                feather.replace();
+            }
+
+            function setTheme(theme) {
+                if (theme !== 'light' && theme !== 'dark') theme = 'light';
+                document.documentElement.setAttribute('data-theme', theme);
+                try { localStorage.setItem(STORAGE_KEY, theme); } catch (e) {}
+                syncThemeToggleUI(theme);
+            }
+
+            window.MetrolinksTheme = { get: getTheme, set: setTheme, toggle: function () {
+                setTheme(getTheme() === 'dark' ? 'light' : 'dark');
+            }};
+
+            syncThemeToggleUI(getTheme());
+
+            document.querySelectorAll('#theme-toggle, #theme-toggle-nav').forEach(function (btn) {
+                btn.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    window.MetrolinksTheme.toggle();
+                });
+            });
+        })();
+
         function toggleProfileDropdown() {
             const dropdown = document.getElementById('profile-dropdown-list');
-            if (dropdown) {
-                dropdown.classList.toggle('show');
-            }
+            if (dropdown) dropdown.classList.toggle('show');
         }
 
-        // Close dropdown when clicking outside
         window.addEventListener('click', function(e) {
             const profileMenu = document.getElementById('profile-menu-toggle');
             const dropdown = document.getElementById('profile-dropdown-list');
@@ -198,7 +281,6 @@
             }
         });
 
-        // Mobile navigation
         function setNavOpen(isOpen) {
             const toggleBtn = document.getElementById('nav-toggle-btn');
             const navMenu = document.getElementById('nav-menu');
@@ -233,16 +315,11 @@
                     setNavOpen(!navMenu.classList.contains('show'));
                 });
 
-                if (backdrop) {
-                    backdrop.addEventListener('click', closeNav);
-                }
+                if (backdrop) backdrop.addEventListener('click', closeNav);
 
                 navMenu.querySelectorAll('.nav-link').forEach(link => {
-                    link.addEventListener('click', function() {
-                        closeNav();
-                    });
+                    link.addEventListener('click', closeNav);
                 });
-
 
                 window.addEventListener('keydown', function(e) {
                     if (e.key === 'Escape') closeNav();
@@ -253,7 +330,6 @@
                 });
             }
 
-            // Auto-dismiss alerts after 5 seconds
             const toasts = document.querySelectorAll('.alert-message');
             toasts.forEach(toast => {
                 setTimeout(() => {
@@ -263,6 +339,42 @@
                     setTimeout(() => toast.remove(), 500);
                 }, 5000);
             });
+
+            const sidebar = document.getElementById('app-sidebar');
+            const sidebarOpenBtn = document.getElementById('sidebar-open-btn');
+            const sidebarCloseBtn = document.getElementById('app-sidebar-close');
+            const sidebarBackdrop = document.getElementById('app-sidebar-backdrop');
+
+            function setSidebarOpen(isOpen) {
+                if (!sidebar) return;
+                document.body.classList.toggle('sidebar-open', isOpen);
+                if (sidebarOpenBtn) sidebarOpenBtn.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+                if (sidebarBackdrop) sidebarBackdrop.setAttribute('aria-hidden', isOpen ? 'false' : 'true');
+            }
+
+            if (sidebar && sidebarOpenBtn) {
+                sidebarOpenBtn.addEventListener('click', function (e) {
+                    e.stopPropagation();
+                    setSidebarOpen(true);
+                });
+                if (sidebarCloseBtn) {
+                    sidebarCloseBtn.addEventListener('click', function () { setSidebarOpen(false); });
+                }
+                if (sidebarBackdrop) {
+                    sidebarBackdrop.addEventListener('click', function () { setSidebarOpen(false); });
+                }
+                sidebar.querySelectorAll('.app-sidebar__link').forEach(function (link) {
+                    link.addEventListener('click', function () {
+                        if (window.innerWidth <= 992) setSidebarOpen(false);
+                    });
+                });
+                window.addEventListener('keydown', function (e) {
+                    if (e.key === 'Escape') setSidebarOpen(false);
+                });
+                window.addEventListener('resize', function () {
+                    if (window.innerWidth > 992) setSidebarOpen(false);
+                });
+            }
         });
     </script>
 </body>
